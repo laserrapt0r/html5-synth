@@ -142,7 +142,8 @@ export class UIController {
                 if (this.isUpdatingUI) return;
                 
                 if (this.editStepIndex !== null) {
-                    this.sequencer.setStepLock(this.editStepIndex, binding.group, binding.param, value);
+                    const bankIdx = this.trackBanks[this.editStepIndex.trackIndex];
+                    this.sequencer.setStepLock(this.editStepIndex.stepIndex, binding.group, binding.param, value, bankIdx);
                     el.classList.add('locked');
                     if (binding.type === 'range') {
                         const parent = el.parentNode;
@@ -212,7 +213,7 @@ export class UIController {
     }
 
     initSequencerGrid() {
-        const grid = document.getElementById('sequencer-steps');
+        this.trackBanks = [0, 1]; // Track 1 plays Bank A(0), Track 2 plays Bank B(1)
         const notes = ["C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3", "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5"];
         const noteToMidi = (note) => {
             const notesArr = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -221,103 +222,111 @@ export class UIController {
             return octave * 12 + notesArr.indexOf(noteName) + 12;
         };
 
+        const defaultNotes = new Array(32).fill(60); 
+        const funkyTown = [
+            {step: 0, note: 60}, {step: 2, note: 60}, {step: 4, note: 58}, {step: 6, note: 60},
+            {step: 10, note: 55}, {step: 14, note: 55}, {step: 16, note: 60}, {step: 18, note: 65},
+            {step: 20, note: 64}, {step: 22, note: 60}
+        ];
+        funkyTown.forEach(n => {
+            defaultNotes[n.step] = n.note;
+        });
+
+        // Init pattern 0 in sequencer with funky town
         for (let i = 0; i < 32; i++) {
-            const col = document.createElement('div');
-            col.className = 'step-col';
-
-            const btn = document.createElement('div');
-            btn.className = 'step-btn';
-            btn.id = `step-btn-${i}`;
-            
-            btn.addEventListener('click', (e) => {
-                if (e.shiftKey) {
-                    this.toggleEditStep(i);
-                } else {
-                    btn.classList.toggle('active');
-                    const isActive = btn.classList.contains('active');
-                    this.sequencer.setStep(i, isActive);
-                }
-            });
-
-            const pitchSelect = document.createElement('select');
-            pitchSelect.className = 'step-pitch';
-            
-            notes.forEach(note => {
-                const opt = document.createElement('option');
-                opt.value = noteToMidi(note);
-                opt.textContent = note;
-                if (note === 'C3') opt.selected = true;
-                pitchSelect.appendChild(opt);
-            });
-
-            const defaultNotes = new Array(32).fill(60); 
-            const funkyTown = [
-                {step: 0, note: 60}, {step: 2, note: 60}, {step: 4, note: 58}, {step: 6, note: 60},
-                {step: 10, note: 55}, {step: 14, note: 55}, {step: 16, note: 60}, {step: 18, note: 65},
-                {step: 20, note: 64}, {step: 22, note: 60}
-            ];
-            funkyTown.forEach(n => {
-                defaultNotes[n.step] = n.note;
-            });
             this.sequencer.setStep(i, undefined, defaultNotes[i], 0);
-
-            pitchSelect.addEventListener('change', (e) => {
-                this.sequencer.setStep(i, undefined, parseInt(e.target.value));
-            });
-
-            col.appendChild(btn);
-            col.appendChild(pitchSelect);
-            grid.appendChild(col);
         }
 
-        this.renderGridForPattern(0);
+        for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+            const grid = document.getElementById(`sequencer-steps-${trackIndex}`);
+            if (!grid) continue;
+            grid.innerHTML = '';
+            
+            for (let i = 0; i < 32; i++) {
+                const col = document.createElement('div');
+                col.className = 'step-col';
 
-        const playToggles = ['play-pat-0', 'play-pat-1', 'play-pat-2', 'play-pat-3'];
-        playToggles.forEach((id, index) => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('change', (e) => {
-                    this.sequencer.setPlayPatternActive(index, e.target.checked);
+                const btn = document.createElement('div');
+                btn.className = 'step-btn';
+                btn.id = `step-btn-t${trackIndex}-${i}`;
+                
+                btn.addEventListener('click', (e) => {
+                    if (e.shiftKey) {
+                        this.toggleEditStep(trackIndex, i);
+                    } else {
+                        btn.classList.toggle('active');
+                        const isActive = btn.classList.contains('active');
+                        this.sequencer.setStep(i, isActive, undefined, this.trackBanks[trackIndex]);
+                    }
                 });
-            }
-        });
 
-        document.querySelectorAll('input[name="pattern-sel"]').forEach(radio => {
+                const pitchSelect = document.createElement('select');
+                pitchSelect.className = 'step-pitch';
+                
+                notes.forEach(note => {
+                    const opt = document.createElement('option');
+                    opt.value = noteToMidi(note);
+                    opt.textContent = note;
+                    if (note === 'C3') opt.selected = true;
+                    pitchSelect.appendChild(opt);
+                });
+
+                pitchSelect.addEventListener('change', (e) => {
+                    this.sequencer.setStep(i, undefined, parseInt(e.target.value), this.trackBanks[trackIndex]);
+                });
+
+                col.appendChild(btn);
+                col.appendChild(pitchSelect);
+                grid.appendChild(col);
+            }
+        }
+
+        this.renderTrack(0);
+        this.renderTrack(1);
+
+        document.querySelectorAll('input[name="track1-bank"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
-                const patternIdx = parseInt(e.target.value);
-                this.sequencer.setEditPattern(patternIdx);
-                this.renderGridForPattern(patternIdx);
+                const bankIdx = parseInt(e.target.value);
+                this.trackBanks[0] = bankIdx;
+                this.sequencer.setTrackBank(0, bankIdx);
+                this.renderTrack(0);
             });
         });
 
+        document.querySelectorAll('input[name="track2-bank"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const bankIdx = parseInt(e.target.value);
+                this.trackBanks[1] = bankIdx;
+                this.sequencer.setTrackBank(1, bankIdx);
+                this.renderTrack(1);
+            });
+        });
 
-        this.sequencer.onStep = (step, playPattern) => {
+        this.sequencer.onStep = (step) => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('current'));
             
-            if (step >= 0 && playPattern === this.sequencer.currentEditPattern) {
-                const stepBtn = document.getElementById(`step-btn-${step}`);
-                if (stepBtn) {
-                    stepBtn.classList.add('current');
-                    // Auto-scroll the grid to keep the current step visible
-                    const grid = document.getElementById('sequencer-steps');
-                    const btnRect = stepBtn.getBoundingClientRect();
-                    const gridRect = grid.getBoundingClientRect();
-                    if (btnRect.right > gridRect.right) {
-                        grid.scrollLeft += btnRect.width * 2;
-                    } else if (btnRect.left < gridRect.left) {
-                        grid.scrollLeft -= btnRect.width * 2;
-                    }
+            if (step >= 0) {
+                for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+                    const stepBtn = document.getElementById(`step-btn-t${trackIndex}-${step}`);
+                    if (stepBtn) stepBtn.classList.add('current');
                 }
             }
         };
     }
 
-    renderGridForPattern(patternIndex) {
-        this.editStepIndex = null;
-        this.updateUIFromParams();
-        const patternData = this.sequencer.patterns[patternIndex];
+    renderTrack(trackIndex) {
+        if (this.editStepIndex && this.editStepIndex.trackIndex === trackIndex) {
+            this.editStepIndex = null;
+            document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('edit-mode'));
+            this.updateUIFromParams();
+        }
+
+        const bankIdx = this.trackBanks[trackIndex];
+        const patternData = this.sequencer.patterns[bankIdx];
+        
         for (let i = 0; i < 32; i++) {
-            const btn = document.getElementById(`step-btn-${i}`);
+            const btn = document.getElementById(`step-btn-t${trackIndex}-${i}`);
+            if (!btn) continue;
             const select = btn.nextElementSibling;
             
             const stepData = patternData[i];
@@ -332,23 +341,27 @@ export class UIController {
         }
     }
 
-    toggleEditStep(index) {
-        if (this.editStepIndex === index) {
+    toggleEditStep(trackIndex, index) {
+        if (this.editStepIndex && this.editStepIndex.trackIndex === trackIndex && this.editStepIndex.stepIndex === index) {
             this.editStepIndex = null;
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('edit-mode'));
             this.updateUIFromParams();
         } else {
-            this.editStepIndex = index;
+            this.editStepIndex = { trackIndex, stepIndex: index };
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('edit-mode'));
-            document.getElementById(`step-btn-${index}`).classList.add('edit-mode');
+            document.getElementById(`step-btn-t${trackIndex}-${index}`).classList.add('edit-mode');
             this.updateUIFromParams();
         }
     }
 
     updateUIFromParams() {
         this.isUpdatingUI = true;
-        const pLocks = this.editStepIndex !== null ? 
-            this.sequencer.patterns[this.sequencer.currentEditPattern][this.editStepIndex].locks : null;
+        
+        let pLocks = null;
+        if (this.editStepIndex !== null) {
+            const bankIdx = this.trackBanks[this.editStepIndex.trackIndex];
+            pLocks = this.sequencer.patterns[bankIdx][this.editStepIndex.stepIndex].locks;
+        }
 
         document.querySelectorAll('.locked').forEach(el => el.classList.remove('locked'));
         document.querySelectorAll('.locked-label').forEach(el => el.classList.remove('locked-label'));

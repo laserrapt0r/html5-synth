@@ -24,7 +24,7 @@ export class Sequencer {
             Array.from({length: this.numSteps}, () => ({ active: false, note: 60, locks: {} }))
         );
         
-        this.activePlayPatterns = [true, false, false, false];
+        this.trackBanks = [0, 1]; // Track 1 plays Bank A(0), Track 2 plays Bank B(1)
 
         // Timing scheduling
         this.lookahead = 25.0; // ms
@@ -57,8 +57,8 @@ export class Sequencer {
         this.currentEditPattern = patternIndex;
     }
 
-    setPlayPatternActive(patternIndex, active) {
-        this.activePlayPatterns[patternIndex] = active;
+    setTrackBank(trackIndex, bankIndex) {
+        this.trackBanks[trackIndex] = bankIndex;
     }
 
     addArpNote(note) {
@@ -183,9 +183,10 @@ export class Sequencer {
         } 
         // Normal Sequencer Logic
         else if (!arpOn) {
-            for (let i = 0; i < this.numPatterns; i++) {
-                if (this.activePlayPatterns[i]) {
-                    const stepData = this.patterns[i][stepNumber];
+            for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+                const bankIdx = this.trackBanks[trackIndex];
+                if (bankIdx >= 0 && bankIdx < this.numPatterns) {
+                    const stepData = this.patterns[bankIdx][stepNumber];
                     if (stepData.active) {
                         this.synth.playNote(stepData.note, scheduledTime, baseGateDuration, stepData.locks);
                     }
