@@ -134,29 +134,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Mixer & Noise -->
-                    <div class="mixer-module">
-                        <div class="fx-header" style="margin-bottom: 8px;">
-                            <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-cyan);">NOISE & GLIDE</span>
-                        </div>
-                        <div class="radio-group wave-select">
-                            <input type="radio" name="noise-type" id="n-white" value="white" checked>
-                            <label for="n-white" class="wave-btn">WHT</label>
-                            <input type="radio" name="noise-type" id="n-pink" value="pink">
-                            <label for="n-pink" class="wave-btn">PNK</label>
-                        </div>
-                        <div class="controls-row">
-                            <div class="control-group">
-                                <label>NOISE</label>
-                                <input type="range" id="noise-level" min="0" max="1" step="0.01" value="0">
-                            </div>
-                            <div class="control-group">
-                                <label>GLIDE</label>
-                                <input type="range" id="glide-time" min="0" max="2" step="0.01" value="0">
-                            </div>
-                        </div>
-                    </div>
-                    
                     <!-- VCO 3 -->
                     <div class="vco-module">
                         <div class="fx-header" style="margin-bottom: 8px;">
@@ -188,6 +165,41 @@
                             <div class="control-group">
                                 <label>LVL</label>
                                 <input type="range" id="vco3-level" min="0" max="1" step="0.01" value="0.4">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Noise & Glide -->
+                    <div style="display: flex; gap: 10px; width: 100%;">
+                        <!-- Noise Box -->
+                        <div class="mixer-module" style="flex: 1;">
+                            <div class="fx-header" style="margin-bottom: 8px;">
+                                <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-cyan);">NOISE</span>
+                            </div>
+                            <div class="radio-group wave-select">
+                                <input type="radio" name="noise-type" id="n-white" value="white" checked>
+                                <label for="n-white" class="wave-btn">WHT</label>
+                                <input type="radio" name="noise-type" id="n-pink" value="pink">
+                                <label for="n-pink" class="wave-btn">PNK</label>
+                            </div>
+                            <div class="controls-row" style="flex: 1; align-items: center;">
+                                <div class="control-group">
+                                    <label>LVL</label>
+                                    <input type="range" id="noise-level" min="0" max="1" step="0.01" value="0">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Glide Box -->
+                        <div class="mixer-module" style="flex: 1;">
+                            <div class="fx-header" style="margin-bottom: 8px;">
+                                <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-cyan);">GLIDE</span>
+                            </div>
+                            <div class="controls-row" style="flex: 1; align-items: center; justify-content: center;">
+                                <div class="control-group">
+                                    <label>TIME</label>
+                                    <input type="range" id="glide-time" min="0" max="2" step="0.01" value="0">
+                                </div>
                             </div>
                         </div>
                     </div>
