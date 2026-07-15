@@ -55,6 +55,8 @@ export class Sequencer {
 
     setEditPattern(patternIndex) {
         this.currentEditPattern = patternIndex;
+    }
+
     setPlayPatternActive(patternIndex, active) {
         this.activePlayPatterns[patternIndex] = active;
     }
