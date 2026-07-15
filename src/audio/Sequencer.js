@@ -109,16 +109,63 @@ export class Sequencer {
         // Arpeggiator Logic
         const arpOn = this.synth.params.master.arpOn;
         if (arpOn && this.arpNotes.length > 0) {
-            let notes = [...this.arpNotes];
+            let baseNotes = [...this.arpNotes];
+            const arpOctaves = parseInt(this.synth.params.master.arpOctaves) || 1;
+            
+            // Expand to octaves
+            let expandedNotes = [];
+            for (let i = 0; i < arpOctaves; i++) {
+                expandedNotes = expandedNotes.concat(baseNotes.map(n => n + (i * 12)));
+            }
+            
+            let notes = [...expandedNotes];
             const arpMode = this.synth.params.master.arpMode;
             
-            if (arpMode === 'up') notes.sort((a,b) => a - b);
-            else if (arpMode === 'down') notes.sort((a,b) => b - a);
-            else if (arpMode === 'random') notes.sort(() => Math.random() - 0.5);
-            else if (arpMode === 'updown') {
+            if (arpMode === 'up') {
+                notes.sort((a,b) => a - b);
+            } else if (arpMode === 'down') {
+                notes.sort((a,b) => b - a);
+            } else if (arpMode === 'updown') { // Exclusive
                 const up = [...notes].sort((a,b) => a - b);
                 const down = [...notes].sort((a,b) => b - a).slice(1, -1);
                 notes = up.concat(down);
+                if (notes.length === 0) notes = expandedNotes;
+            } else if (arpMode === 'updown_inc') { // Inclusive
+                const up = [...notes].sort((a,b) => a - b);
+                const down = [...notes].sort((a,b) => b - a);
+                notes = up.concat(down);
+            } else if (arpMode === 'as_played') {
+                notes = expandedNotes; 
+            } else if (arpMode === 'random') {
+                notes = [expandedNotes[Math.floor(Math.random() * expandedNotes.length)]];
+            } else if (arpMode === 'converge') {
+                const sorted = [...notes].sort((a,b) => a - b);
+                let left = 0;
+                let right = sorted.length - 1;
+                notes = [];
+                while (left <= right) {
+                    if (left === right) {
+                        notes.push(sorted[left]);
+                        break;
+                    }
+                    notes.push(sorted[left]);
+                    notes.push(sorted[right]);
+                    left++;
+                    right--;
+                }
+            } else if (arpMode === 'thumb') {
+                const sorted = [...notes].sort((a,b) => a - b);
+                const lowest = sorted[0];
+                const rest = sorted.slice(1);
+                if (rest.length > 0) {
+                    notes = [];
+                    for (let i = 0; i < rest.length; i++) {
+                        notes.push(lowest);
+                        notes.push(rest[i]);
+                    }
+                } else {
+                    notes = [lowest];
+                }
             }
             
             const noteToPlay = notes[this.arpIndex % notes.length];

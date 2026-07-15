@@ -58,6 +58,7 @@ export class UIController {
             { id: 'seq-swing', group: 'master', param: 'swing', type: 'range' },
             { id: 'arp-on', group: 'master', param: 'arpOn', type: 'checkbox' },
             { id: 'arp-mode', group: 'master', param: 'arpMode', type: 'select' },
+            { id: 'arp-octaves', group: 'master', param: 'arpOctaves', type: 'range' },
             
             // LFOs
             { name: 'lfo1-wave', group: 'lfo1', param: 'wave', type: 'radio' },
@@ -307,11 +308,11 @@ export class UIController {
                     el.checked = value;
                     if (isLocked) el.classList.add('locked');
                 }
-            } else if (binding.type === 'range') {
+            } else if (binding.type === 'range' || binding.type === 'select') {
                 const el = document.getElementById(binding.id);
                 if (el) {
                     el.value = value;
-                    el.dispatchEvent(new Event('input'));
+                    el.dispatchEvent(new Event(binding.type === 'range' ? 'input' : 'change'));
                     if (isLocked) {
                         el.classList.add('locked');
                         const parent = el.parentNode;
