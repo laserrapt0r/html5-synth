@@ -56,6 +56,11 @@ document.getElementById('btn-close-modal').addEventListener('click', () => {
 // Add power off state
 document.body.classList.add('power-off');
 
+// Apply random animation offsets to create wobble variance
+document.querySelectorAll('.glow-btn, .step-btn, .led-display, h1, h2, h3, input[type="range"], .slider, .wave-btn, .key').forEach(el => {
+    el.style.animationDelay = `-${Math.random() * 7}s`;
+});
+
 // The browser requires user interaction to resume AudioContext
 const initAudio = async () => {
     if (audioContext.state === 'suspended') {
