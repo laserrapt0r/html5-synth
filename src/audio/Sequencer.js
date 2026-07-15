@@ -4,6 +4,7 @@ export class Sequencer {
         this.ctx = synth.ctx;
         
         this.isPlaying = false;
+        this.autoStartedByArp = false;
         this.bpm = 120;
         this.currentStep = 0;
         this.numSteps = 32;
@@ -58,6 +59,24 @@ export class Sequencer {
         this.chainMode = active;
         if (active) {
             this.currentPlayPattern = this.currentEditPattern;
+        }
+    }
+
+    addArpNote(note) {
+        if (!this.arpNotes.includes(note)) {
+            this.arpNotes.push(note);
+        }
+        if (!this.isPlaying && this.synth.params.master.arpOn) {
+            this.autoStartedByArp = true;
+            this.play();
+        }
+    }
+
+    removeArpNote(note) {
+        this.arpNotes = this.arpNotes.filter(n => n !== note);
+        if (this.arpNotes.length === 0 && this.autoStartedByArp) {
+            this.stop();
+            this.autoStartedByArp = false;
         }
     }
 
@@ -140,13 +159,27 @@ export class Sequencer {
         this.currentStep = 0;
         this.nextNoteTime = this.ctx.currentTime + 0.05; // start shortly after
         this.scheduler();
+        
+        const playBtn = document.getElementById('seq-play');
+        if (playBtn) {
+            playBtn.textContent = 'STOP';
+            playBtn.classList.add('playing');
+        }
     }
 
     stop() {
+        if (!this.isPlaying) return;
         this.isPlaying = false;
+        this.autoStartedByArp = false;
         clearTimeout(this.timerID);
         this.currentStep = 0;
         this.currentPlayPattern = this.chainMode ? 0 : this.currentEditPattern;
+        
+        const playBtn = document.getElementById('seq-play');
+        if (playBtn) {
+            playBtn.textContent = 'PLAY';
+            playBtn.classList.remove('playing');
+        }
         if (this.onStep) this.onStep(-1, this.currentPlayPattern);
     }
 }
