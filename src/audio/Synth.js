@@ -105,7 +105,7 @@ export class Synth {
             
             // Store voice to manage note-off
             if (this.activeVoices[note]) {
-                this.activeVoices[note].forceStop(time); // Fast kill old voice if same note triggered
+                this.activeVoices[note].stop(time); // Stop old voice if same note triggered
             }
             this.activeVoices[note] = voice;
             
