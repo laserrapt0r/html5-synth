@@ -130,15 +130,25 @@ export class Voice {
     stop(time) {
         if (!this.isActive) return;
         
+        const a = Math.max(0.001, parseFloat(this.getParam('aEnv', 'a')));
+        const d = Math.max(0.001, parseFloat(this.getParam('aEnv', 'd')));
+        const s = Math.max(0, parseFloat(this.getParam('aEnv', 's')));
         const r = parseFloat(this.getParam('aEnv', 'r'));
         
-        // Use cancelAndHoldAtTime to correctly calculate the envelope value at the exact stop time
-        if (typeof this.output.gain.cancelAndHoldAtTime === 'function') {
-            this.output.gain.cancelAndHoldAtTime(time);
-        } else {
-            this.output.gain.cancelScheduledValues(time);
-            this.output.gain.setValueAtTime(this.output.gain.value, time);
+        // Manually calculate the envelope value at 'time' to bypass browser bugs
+        let envValue = 0;
+        if (this.ampEnvStartTime !== undefined) {
+            if (time <= this.ampEnvStartTime) {
+                envValue = 0;
+            } else if (time <= this.ampEnvStartTime + a) {
+                envValue = (time - this.ampEnvStartTime) / a;
+            } else {
+                envValue = s + (1 - s) * Math.exp(-(time - (this.ampEnvStartTime + a)) / (d / 3));
+            }
         }
+        
+        this.output.gain.cancelScheduledValues(time);
+        this.output.gain.setValueAtTime(envValue, time);
         this.output.gain.setTargetAtTime(0, time, Math.max(0.01, r / 3));
 
         const stopTime = time + r + 0.1;
@@ -232,6 +242,7 @@ export class Voice {
     }
 
     triggerAmpEnvelope(time) {
+        this.ampEnvStartTime = time;
         const a = Math.max(0.001, parseFloat(this.getParam('aEnv', 'a')));
         const d = Math.max(0.001, parseFloat(this.getParam('aEnv', 'd')));
         const s = Math.max(0, parseFloat(this.getParam('aEnv', 's')));
