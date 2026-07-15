@@ -139,6 +139,7 @@ export class Synth {
                     const octaveMult = Math.pow(2, parseInt(this.params[`vco${i+1}`].oct));
                     osc.frequency.cancelScheduledValues(time);
                     if (glideTime > 0) {
+                        osc.frequency.setValueAtTime(osc.frequency.value, time);
                         osc.frequency.setTargetAtTime(freq * octaveMult, time, Math.max(0.01, glideTime / 3));
                     } else {
                         osc.frequency.setValueAtTime(freq * octaveMult, time);
