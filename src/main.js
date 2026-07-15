@@ -92,21 +92,24 @@ const keyMap = {
     'k': 72 // C5
 };
 
-let activeKeyNotes = {};
-
 window.addEventListener('keydown', (e) => {
     if (e.repeat) return; // Prevent key repeat triggering multiple notes
-    if (audioContext && keyMap[e.key]) {
-        const note = keyMap[e.key];
-        synth.playNote(note, audioContext.currentTime);
-        activeKeyNotes[e.key] = note;
+    if (audioContext && keyMap[e.key.toLowerCase()]) {
+        const note = keyMap[e.key.toLowerCase()];
+        const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+        if (keyEl) {
+            keyEl.dispatchEvent(new MouseEvent('mousedown'));
+        }
     }
 });
 
 window.addEventListener('keyup', (e) => {
-    if (audioContext && activeKeyNotes[e.key]) {
-        synth.stopNote(activeKeyNotes[e.key], audioContext.currentTime);
-        delete activeKeyNotes[e.key];
+    if (audioContext && keyMap[e.key.toLowerCase()]) {
+        const note = keyMap[e.key.toLowerCase()];
+        const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+        if (keyEl) {
+            keyEl.dispatchEvent(new MouseEvent('mouseup'));
+        }
     }
 });
 
