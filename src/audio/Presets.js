@@ -2,7 +2,7 @@ export const Presets = {
     "init": {
         name: "INIT PATCH",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpOctaves: 1 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1 },
             vco1: { on: true, wave: 'square', oct: 0, tune: 0, level: 0.8, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0.0 },
             vco3: { on: false, wave: 'square', oct: 0, tune: 0, level: 0.0 },
@@ -22,7 +22,7 @@ export const Presets = {
     "cyber-bass": {
         name: "CYBER BASS",
         params: {
-            master: { polyphony: 'mono', glide: 0.05, swing: 0.3, arpOn: false, arpMode: 'up', arpOctaves: 1 },
+            master: { polyphony: 'mono', glide: 0.05, swing: 0.3, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1 },
             vco1: { on: true, wave: 'sawtooth', oct: -1, tune: 0, level: 1.0, pw: 0.5, pwm: 0.2 },
             vco2: { on: true, wave: 'square', oct: -2, tune: 0, level: 0.8 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -42,7 +42,7 @@ export const Presets = {
     "neon-pad": {
         name: "NEON PAD",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpOctaves: 1 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1 },
             vco1: { on: true, wave: 'sawtooth', oct: 0, tune: -8, level: 0.6, pw: 0.3, pwm: 0.4 },
             vco2: { on: true, wave: 'sawtooth', oct: 0, tune: 8, level: 0.6 },
             vco3: { on: true, wave: 'square', oct: -1, tune: 0, level: 0.5 },
@@ -62,7 +62,7 @@ export const Presets = {
     "acid-pluck": {
         name: "ACID PLUCK",
         params: {
-            master: { polyphony: 'mono', glide: 0.02, swing: 0, arpOn: true, arpMode: 'random', arpOctaves: 2 },
+            master: { polyphony: 'mono', glide: 0.02, swing: 0, arpOn: true, arpMode: 'random', arpLatch: false, arpOctaves: 2 },
             vco1: { on: true, wave: 'square', oct: 0, tune: 0, level: 1.0, pw: 0.15, pwm: 0.6 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -82,7 +82,7 @@ export const Presets = {
     "retro-brass": {
         name: "RETRO BRASS",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpOctaves: 1 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1 },
             vco1: { on: true, wave: 'sawtooth', oct: 0, tune: -5, level: 0.7, pw: 0.5, pwm: 0.1 },
             vco2: { on: true, wave: 'sawtooth', oct: 0, tune: 5, level: 0.7 },
             vco3: { on: true, wave: 'square', oct: -1, tune: 0, level: 0.5 },

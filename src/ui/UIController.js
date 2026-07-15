@@ -58,6 +58,7 @@ export class UIController {
             { id: 'seq-swing', group: 'master', param: 'swing', type: 'range' },
             { id: 'arp-on', group: 'master', param: 'arpOn', type: 'checkbox' },
             { id: 'arp-mode', group: 'master', param: 'arpMode', type: 'select' },
+            { id: 'arp-latch', group: 'master', param: 'arpLatch', type: 'checkbox' },
             { id: 'arp-octaves', group: 'master', param: 'arpOctaves', type: 'range' },
             
             // LFOs
@@ -128,6 +129,11 @@ export class UIController {
                     }
                 } else {
                     this.synth.updateParams(binding.group, binding.param, value);
+                    if (binding.param === 'arpLatch' && value === false) {
+                        this.sequencer.clearArpNotes();
+                        // Turn off active visual keys
+                        document.querySelectorAll('.key.active').forEach(k => k.classList.remove('active'));
+                    }
                 }
             };
 

@@ -63,6 +63,10 @@ export class Sequencer {
     }
 
     addArpNote(note) {
+        if (this.synth.params.master.arpLatch && this.arpNotes.length > 0 && !this.keysHeld) {
+             // In a more complex Latch, pressing a new chord clears the old one.
+             // For now, we just accumulate. 
+        }
         if (!this.arpNotes.includes(note)) {
             this.arpNotes.push(note);
         }
@@ -73,8 +77,17 @@ export class Sequencer {
     }
 
     removeArpNote(note) {
+        if (this.synth.params.master.arpLatch) return;
         this.arpNotes = this.arpNotes.filter(n => n !== note);
         if (this.arpNotes.length === 0 && this.autoStartedByArp) {
+            this.stop();
+            this.autoStartedByArp = false;
+        }
+    }
+
+    clearArpNotes() {
+        this.arpNotes = [];
+        if (this.autoStartedByArp) {
             this.stop();
             this.autoStartedByArp = false;
         }
