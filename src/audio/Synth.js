@@ -120,7 +120,7 @@ export class Synth {
         } else {
             // Mono / Legato Mode
             this.currentMonoNote = note;
-            if (!this.monoVoice || !this.monoVoice.isActive) {
+            if (!this.monoVoice || !this.monoVoice.isActive || this.monoVoice.isStopping) {
                 this.monoVoice = new Voice(this.ctx, this.params);
                 this.lfo1PitchGain.connect(this.monoVoice.pitchTarget);
                 this.lfo1CutoffGain.connect(this.monoVoice.filterTarget);
