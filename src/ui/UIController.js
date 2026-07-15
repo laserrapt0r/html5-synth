@@ -110,6 +110,28 @@ export class UIController {
             }
             
             slider.addEventListener('input', updateDisplay);
+            
+            slider.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const step = parseFloat(slider.step) || 1;
+                const min = parseFloat(slider.min) || 0;
+                const max = parseFloat(slider.max) || 100;
+                let val = parseFloat(slider.value);
+                
+                if (e.deltaY > 0) {
+                    val = Math.max(min, val - step);
+                } else if (e.deltaY < 0) {
+                    val = Math.min(max, val + step);
+                }
+                
+                if (val !== parseFloat(slider.value)) {
+                    slider.value = val;
+                    updateDisplay();
+                    slider.dispatchEvent(new Event('input', { bubbles: true }));
+                    slider.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }, { passive: false });
+
             updateDisplay();
         });
 
