@@ -796,52 +796,65 @@ body.power-off .key.black.active {
     100% { box-shadow: 0 0 5px var(--neon-cyan); filter: brightness(1); }
 }
 
-/* Power On Animations */
-body.powered-on {
-    animation: power-on-surge 1s cubic-bezier(0.1, 1.5, 0.5, 1) forwards;
-}
-
-@keyframes power-on-surge {
-    0% { filter: brightness(0.5) saturate(0.5); }
-    50% { filter: brightness(1.5) saturate(1.5); }
-    100% { filter: brightness(1) saturate(1); }
-}
-
 /* Breathing Effects for Lights */
 body.powered-on .led-display,
 body.powered-on .logo h1 {
-    animation: breath-slow 4s ease-in-out infinite alternate;
+    animation: neon-wobble-slow 7s linear infinite alternate;
 }
 
 body.powered-on input[type="range"]::-webkit-slider-thumb {
-    animation: breath-med 3s ease-in-out infinite alternate;
+    animation: neon-wobble-med 5s linear infinite alternate;
 }
 
 body.powered-on .step-btn.active,
 body.powered-on .key.active {
-    animation: flicker-breath 5s ease-in-out infinite alternate;
+    animation: neon-wobble-fast 4s linear infinite alternate;
 }
 
 body.powered-on .glow-btn.playing {
-    animation: breath-fast 2s ease-in-out infinite alternate;
+    animation: neon-wobble-fast 3s linear infinite alternate-reverse;
 }
 
-@keyframes breath-slow {
+@keyframes neon-wobble-slow {
     0% { filter: brightness(1); }
-    100% { filter: brightness(0.85); }
-}
-@keyframes breath-med {
-    0% { filter: brightness(0.9); }
-    100% { filter: brightness(1.1); }
-}
-@keyframes breath-fast {
-    0% { filter: brightness(0.9); box-shadow: 0 0 8px rgba(57, 255, 20, 0.4); }
-    100% { filter: brightness(1.2); box-shadow: 0 0 15px rgba(57, 255, 20, 0.6); }
-}
-@keyframes flicker-breath {
-    0% { filter: brightness(0.9); }
+    10% { filter: brightness(0.85); }
+    12% { filter: brightness(1.1); }
+    15% { filter: brightness(0.9); }
+    30% { filter: brightness(1.05); }
+    40% { filter: brightness(0.95); }
+    45% { filter: brightness(0.7); } /* Deep flicker */
     48% { filter: brightness(1.1); }
-    50% { filter: brightness(0.8); }
-    52% { filter: brightness(1.1); }
-    100% { filter: brightness(0.95); }
+    60% { filter: brightness(1); }
+    75% { filter: brightness(0.85); }
+    77% { filter: brightness(1.05); }
+    90% { filter: brightness(0.95); }
+    100% { filter: brightness(1); }
+}
+
+@keyframes neon-wobble-med {
+    0% { filter: brightness(0.9); }
+    5% { filter: brightness(1.1); }
+    10% { filter: brightness(0.85); }
+    25% { filter: brightness(1.05); }
+    30% { filter: brightness(0.75); } /* Flicker */
+    35% { filter: brightness(1.1); }
+    50% { filter: brightness(0.95); }
+    65% { filter: brightness(1.05); }
+    70% { filter: brightness(0.85); }
+    85% { filter: brightness(1); }
+    100% { filter: brightness(0.9); }
+}
+
+@keyframes neon-wobble-fast {
+    0% { filter: brightness(1); }
+    15% { filter: brightness(0.8); }
+    20% { filter: brightness(1.1); }
+    35% { filter: brightness(0.95); }
+    40% { filter: brightness(0.6); } /* Sharp drop */
+    42% { filter: brightness(1.2); } /* Spike */
+    55% { filter: brightness(1); }
+    70% { filter: brightness(0.85); }
+    75% { filter: brightness(1.1); }
+    85% { filter: brightness(0.9); }
+    100% { filter: brightness(1.05); }
 }
