@@ -115,6 +115,7 @@ export class Synth {
             }
         } else {
             // Mono / Legato Mode
+            this.currentMonoNote = note;
             if (!this.monoVoice || !this.monoVoice.isActive) {
                 this.monoVoice = new Voice(this.ctx, this.params);
                 this.lfo1PitchGain.connect(this.monoVoice.pitchTarget);
@@ -138,7 +139,7 @@ export class Synth {
                     const octaveMult = Math.pow(2, parseInt(this.params[`vco${i+1}`].oct));
                     osc.frequency.cancelScheduledValues(time);
                     if (glideTime > 0) {
-                        osc.frequency.linearRampToValueAtTime(freq * octaveMult, time + glideTime);
+                        osc.frequency.setTargetAtTime(freq * octaveMult, time, Math.max(0.01, glideTime / 3));
                     } else {
                         osc.frequency.setValueAtTime(freq * octaveMult, time);
                     }
@@ -158,9 +159,8 @@ export class Synth {
                 delete this.activeVoices[note];
             }
         } else {
-            if (this.monoVoice) {
+            if (this.monoVoice && this.currentMonoNote === note) {
                 this.monoVoice.stop(time);
-                this.monoVoice = null;
             }
         }
     }
