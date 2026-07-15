@@ -164,24 +164,6 @@ export class Voice {
         }, (stopTime - this.ctx.currentTime) * 1000);
     }
 
-    forceStop(time) {
-        if (!this.isActive) return;
-        this.isStopping = true;
-        this.output.gain.cancelScheduledValues(time);
-        this.output.gain.setValueAtTime(this.output.gain.value, time);
-        this.output.gain.setTargetAtTime(0, time, 0.015); // Fast 50ms fade
-        
-        const stopTime = time + 0.05;
-        this.oscs.forEach(osc => osc.stop(stopTime));
-        if (this.noiseSource) {
-            this.noiseSource.stop(stopTime);
-        }
-        setTimeout(() => {
-            this.disconnect();
-            this.isActive = false;
-        }, (stopTime - this.ctx.currentTime) * 1000);
-    }
-
     updateParams() {
         if (!this.isActive) return;
 
