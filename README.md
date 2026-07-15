@@ -3,6 +3,8 @@
 Neon Synth is a powerful, browser-based analog-style synthesizer and 32-step sequencer built with the Web Audio API. 
 It features a rich retro-futuristic neon aesthetic and packs a punch with advanced features typically found on hardware synths like the Roland S-1.
 
+🎵 **[Play Neon Synth Live Here!](https://laserrapt0r.github.io/html5-synth/)** 🎵
+
 ## Features
 
 - **3-Oscillator Monophonic/Polyphonic Engine:** Classic analog waveforms (Sine, Triangle, Square, Sawtooth) plus Noise.
