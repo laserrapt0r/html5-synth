@@ -284,10 +284,12 @@ input[type="range"]:focus {
 }
 
 .control-group.vertical input[type="range"] {
-    writing-mode: bt-lr;
-    -webkit-appearance: slider-vertical;
-    width: 24px;
-    height: 70px;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 70px;
+    height: 24px;
+    transform: rotate(-90deg);
+    margin: 23px -23px;
     padding: 0;
 }
 
@@ -316,16 +318,10 @@ input[type="range"]::-moz-range-track {
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
 }
 .control-group.vertical input[type="range"]::-webkit-slider-runnable-track {
-    width: 6px;
-    height: 100%;
-    background: #3a3f50;
-    background: linear-gradient(to top, rgba(255, 0, 255, 0.7) 0%, rgba(255, 0, 255, 0.7) var(--percent), #3a3f50 var(--percent), #3a3f50 100%);
+    background: linear-gradient(to right, rgba(255, 0, 255, 0.7) 0%, rgba(255, 0, 255, 0.7) var(--percent), #3a3f50 var(--percent), #3a3f50 100%);
 }
 .control-group.vertical input[type="range"]::-moz-range-track {
-    width: 6px;
-    height: 100%;
-    background: #3a3f50;
-    background: linear-gradient(to top, rgba(255, 0, 255, 0.7) 0%, rgba(255, 0, 255, 0.7) var(--percent), #3a3f50 var(--percent), #3a3f50 100%);
+    background: linear-gradient(to right, rgba(255, 0, 255, 0.7) 0%, rgba(255, 0, 255, 0.7) var(--percent), #3a3f50 var(--percent), #3a3f50 100%);
 }
 
 .slider-value {
@@ -367,14 +363,13 @@ input[type="range"]::-moz-range-thumb {
     box-shadow: 0 0 8px var(--neon-cyan);
 }
 .control-group.vertical input[type="range"]::-webkit-slider-thumb {
-    width: 24px;
-    height: 10px;
-    margin-top: 0;
-    margin-left: -11px;
+    height: 24px;
+    width: 10px;
+    margin-top: -10px;
 }
 .control-group.vertical input[type="range"]::-moz-range-thumb {
-    width: 24px;
-    height: 10px;
+    height: 24px;
+    width: 10px;
 }
 
 /* Envelope Thumbs (Magenta) */
