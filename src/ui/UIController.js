@@ -411,11 +411,8 @@ export class UIController {
             
             const release = () => {
                 if (activeNotes[i]) {
-                    if (this.synth.params.master.arpOn) {
-                        this.sequencer.removeArpNote(i);
-                    } else {
-                        this.synth.stopNote(i, this.synth.ctx.currentTime);
-                    }
+                    this.sequencer.removeArpNote(i);
+                    this.synth.stopNote(i, this.synth.ctx.currentTime);
                     key.classList.remove('active');
                     activeNotes[i] = false;
                 }
@@ -438,5 +435,13 @@ export class UIController {
             
             keyboard.appendChild(key);
         }
+
+        // Global blur handler to prevent stuck notes
+        window.addEventListener('blur', () => {
+            activeNotes = {};
+            document.querySelectorAll('.key.active').forEach(k => k.classList.remove('active'));
+            this.sequencer.heldNotes = []; // Clear arp notes
+            this.synth.stopAllNotes();
+        });
     }
 }

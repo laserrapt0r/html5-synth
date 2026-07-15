@@ -166,6 +166,16 @@ export class Synth {
         }
     }
 
+    stopAllNotes() {
+        const time = this.ctx.currentTime;
+        Object.values(this.activeVoices).forEach(voice => voice.stop(time));
+        this.activeVoices = {};
+        if (this.monoVoice) {
+            this.monoVoice.stop(time);
+            this.monoVoice = null;
+        }
+    }
+
     updateLFO1() {
         const wave = this.params.lfo1.wave;
         this.lfo1PitchGain.gain.value = this.params.lfo1.pitch;
