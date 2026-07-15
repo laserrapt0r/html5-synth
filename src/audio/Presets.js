@@ -62,13 +62,13 @@ export const Presets = {
     "acid-pluck": {
         name: "ACID PLUCK",
         params: {
-            master: { polyphony: 'mono', glide: 0.02, swing: 0, arpOn: true, arpMode: 'random', arpLatch: false, arpOctaves: 2 },
-            vco1: { on: true, wave: 'square', oct: 0, tune: 0, level: 1.0, pw: 0.15, pwm: 0.6 },
+            master: { polyphony: 'mono', glide: 0.02, swing: 0, arpOn: false, arpMode: 'random', arpLatch: false, arpOctaves: 2 },
+            vco1: { on: true, wave: 'sawtooth', oct: 0, tune: 0, level: 1.0, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
             noise: { type: 'white', level: 0 },
-            filter: { type: 'lowpass', cutoff: 100, res: 22 },
-            fEnv: { a: 0.01, d: 0.15, s: 0.0, r: 0.1, amt: 4000 },
+            filter: { type: 'lowpass', cutoff: 80, res: 18 },
+            fEnv: { a: 0.01, d: 0.18, s: 0.0, r: 0.1, amt: 4500 },
             aEnv: { a: 0.01, d: 0.2, s: 0.0, r: 0.1 },
             lfo1: { wave: 'sine', rate: 5, pitch: 0, cutoff: 0 },
             lfo2: { wave: 'sine', rate: 5, amp: 0 },
