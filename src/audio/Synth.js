@@ -230,6 +230,8 @@ export class Synth {
             if (key === 'swing') this.params.master.swing = value;
             if (key === 'arpOn') this.params.master.arpOn = value;
             if (key === 'arpMode') this.params.master.arpMode = value;
+            if (key === 'arpLatch') this.params.master.arpLatch = value;
+            if (key === 'arpOctaves') this.params.master.arpOctaves = value;
         } else if (module === 'effects') {
             this.params.effects[key] = value;
             
@@ -275,8 +277,14 @@ export class Synth {
             }
 
             // Real-time update active voices
-            Object.values(this.activeVoices).forEach(voice => voice.updateParams());
-            if (this.monoVoice) this.monoVoice.updateParams();
+            if (!this._updateScheduled) {
+                this._updateScheduled = true;
+                setTimeout(() => {
+                    Object.values(this.activeVoices).forEach(voice => voice.updateParams());
+                    if (this.monoVoice) this.monoVoice.updateParams();
+                    this._updateScheduled = false;
+                }, 0);
+            }
         }
     }
 }
