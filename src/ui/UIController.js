@@ -161,12 +161,26 @@ export class UIController {
 
             if (binding.type === 'radio') {
                 document.querySelectorAll(`input[name="${binding.name}"]`).forEach(r => {
-                    r.addEventListener('change', (e) => handleParamChange(e.target.value, e.target));
+                    r.addEventListener('change', (e) => {
+                        handleParamChange(e.target.value, e.target);
+                        e.target.blur();
+                    });
                 });
             } else if (binding.type === 'checkbox') {
                 const el = document.getElementById(binding.id);
                 if (el) {
-                    el.addEventListener('change', (e) => handleParamChange(e.target.checked, e.target));
+                    el.addEventListener('change', (e) => {
+                        handleParamChange(e.target.checked, e.target);
+                        e.target.blur();
+                    });
+                }
+            } else if (binding.type === 'select') {
+                const el = document.getElementById(binding.id);
+                if (el) {
+                    el.addEventListener('change', (e) => {
+                        handleParamChange(e.target.value, e.target);
+                        e.target.blur();
+                    });
                 }
             } else if (binding.type === 'range') {
                 const el = document.getElementById(binding.id);

@@ -36,6 +36,7 @@ document.getElementById('preset-select').addEventListener('change', (e) => {
         }
         uiController.updateUIFromParams();
     }
+    e.target.blur(); // Remove focus so typing doesn't accidentally change presets
 });
 
 // Custom Osc Logic
