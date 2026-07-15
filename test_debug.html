@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Debug</title></head>
+<body>
+<div id="out"></div>
+<script type="module">
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+        document.getElementById('out').innerText += msg + "\n";
+        return false;
+    };
+</script>
+<script type="module" src="src/main.js"></script>
+<script type="module">
+    setTimeout(() => {
+        const kb = document.getElementById('piano-keyboard');
+        document.getElementById('out').innerText += "KB keys: " + (kb ? kb.children.length : 'null') + "\n";
+    }, 1000);
+</script>
+<div id="app"><div id="piano-keyboard"></div></div>
+</body>
+</html>

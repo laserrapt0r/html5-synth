@@ -744,3 +744,40 @@ input[type="range"].locked::-moz-range-thumb {
     background: var(--neon-cyan);
     color: #000;
 }
+
+/* Power Off Overlay state */
+body.power-off #app::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(4, 5, 8, 0.85);
+    z-index: 1000;
+    pointer-events: all;
+    transition: opacity 1.5s ease-in-out;
+}
+
+body.powered-on #app::after {
+    opacity: 0;
+    pointer-events: none;
+}
+
+body.power-off #power-btn {
+    position: relative;
+    z-index: 1001; /* Above the overlay */
+    animation: pulse-glow-btn 2s infinite;
+}
+
+@keyframes pulse-glow-btn {
+    0% { box-shadow: 0 0 5px var(--neon-cyan); filter: brightness(1); }
+    50% { box-shadow: 0 0 25px var(--neon-cyan); filter: brightness(1.5); }
+    100% { box-shadow: 0 0 5px var(--neon-cyan); filter: brightness(1); }
+}
+
+body.powered-on {
+    animation: power-on-flash 2s cubic-bezier(0.1, 1.5, 0.5, 1) forwards;
+}
+
+@keyframes power-on-flash {
+    0% { filter: brightness(1.5) saturate(1.5); }
+    100% { filter: brightness(1) saturate(1); }
+}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Arp</title></head>
+<body>
+    <script type="module">
+        import { Synth } from './src/audio/Synth.js';
+        import { Sequencer } from './src/audio/Sequencer.js';
+
+        // Mock UI context
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const synth = new Synth(ctx);
+        const seq = new Sequencer(synth);
+
+        // Force arp parameters
+        synth.params.master.arpOn = true;
+        synth.params.master.arpLatch = true;
+        synth.params.master.arpMode = 'up';
+        synth.params.master.arpOctaves = 2;
+
+        seq.addArpNote(60);
+        seq.addArpNote(64);
+        seq.addArpNote(67);
+
+        // Run scheduler for a few steps and override playNote to log
+        synth.playNote = (note, time, dur) => {
+            console.log("PLAYING NOTE:", note);
+        };
+
+        seq.play();
+
+        // Let it run for a bit
+        setTimeout(() => {
+            seq.stop();
+            console.log("TEST FINISHED");
+        }, 1000);
+    </script>
+</body>
+</html>
