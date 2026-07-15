@@ -24,6 +24,8 @@ export class Sequencer {
             Array.from({length: this.numSteps}, () => ({ active: false, note: 60, locks: {} }))
         );
         
+        this.activeChainPatterns = [true, true, true, true];
+
         // Timing scheduling
         this.lookahead = 25.0; // ms
         this.scheduleAheadTime = 0.1; // s
@@ -51,8 +53,15 @@ export class Sequencer {
         }
     }
 
-    setEditPattern(index) {
-        this.currentEditPattern = index;
+    setEditPattern(patternIndex) {
+        this.currentEditPattern = patternIndex;
+        if (!this.isPlaying && !this.chainMode) {
+            this.currentPlayPattern = patternIndex;
+        }
+    }
+
+    setChainPatternActive(patternIndex, active) {
+        this.activeChainPatterns[patternIndex] = active;
     }
 
     setChainMode(active) {
@@ -101,7 +110,20 @@ export class Sequencer {
         if (this.currentStep === this.numSteps) {
             this.currentStep = 0;
             if (this.chainMode) {
-                this.currentPlayPattern = (this.currentPlayPattern + 1) % this.numPatterns;
+                // Find next active pattern
+                let nextPat = (this.currentPlayPattern + 1) % this.numPatterns;
+                let found = false;
+                for (let i = 0; i < this.numPatterns; i++) {
+                    if (this.activeChainPatterns[nextPat]) {
+                        found = true;
+                        break;
+                    }
+                    nextPat = (nextPat + 1) % this.numPatterns;
+                }
+                
+                if (found) {
+                    this.currentPlayPattern = nextPat;
+                }
             }
         }
     }

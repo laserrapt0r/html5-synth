@@ -284,11 +284,33 @@ export class UIController {
             });
         });
 
+        const chainToggles = ['chain-pat-a', 'chain-pat-b', 'chain-pat-c', 'chain-pat-d'];
+        chainToggles.forEach((id, index) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', (e) => {
+                    this.sequencer.setChainPatternActive(index, e.target.checked);
+                });
+            }
+        });
+
         this.sequencer.onStep = (step, playPattern) => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('current'));
             
             if (step >= 0 && playPattern === this.sequencer.currentEditPattern) {
-                document.getElementById(`step-btn-${step}`).classList.add('current');
+                const stepBtn = document.getElementById(`step-btn-${step}`);
+                if (stepBtn) {
+                    stepBtn.classList.add('current');
+                    // Auto-scroll the grid to keep the current step visible
+                    const grid = document.getElementById('sequencer-steps');
+                    const btnRect = stepBtn.getBoundingClientRect();
+                    const gridRect = grid.getBoundingClientRect();
+                    if (btnRect.right > gridRect.right) {
+                        grid.scrollLeft += btnRect.width * 2;
+                    } else if (btnRect.left < gridRect.left) {
+                        grid.scrollLeft -= btnRect.width * 2;
+                    }
+                }
             }
         };
     }

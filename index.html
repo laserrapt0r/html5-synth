@@ -468,15 +468,24 @@
                         </div>
                     </div>
                     
-                    <div class="pattern-select radio-group" style="margin-left: auto; display: flex; gap: 4px;">
-                        <input type="radio" name="pattern-sel" id="pat-a" value="0" checked>
-                        <label for="pat-a" class="wave-btn" style="min-width: 30px;">A</label>
-                        <input type="radio" name="pattern-sel" id="pat-b" value="1">
-                        <label for="pat-b" class="wave-btn" style="min-width: 30px;">B</label>
-                        <input type="radio" name="pattern-sel" id="pat-c" value="2">
-                        <label for="pat-c" class="wave-btn" style="min-width: 30px;">C</label>
-                        <input type="radio" name="pattern-sel" id="pat-d" value="3">
-                        <label for="pat-d" class="wave-btn" style="min-width: 30px;">D</label>
+                    <div class="pattern-select-container" style="margin-left: auto; display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                        <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">CHAIN SELECT</div>
+                        <div class="chain-toggles" style="display: flex; gap: 4px; padding-bottom: 2px;">
+                            <input type="checkbox" id="chain-pat-a" checked style="width: 30px; height: 12px; margin: 0;">
+                            <input type="checkbox" id="chain-pat-b" checked style="width: 30px; height: 12px; margin: 0;">
+                            <input type="checkbox" id="chain-pat-c" checked style="width: 30px; height: 12px; margin: 0;">
+                            <input type="checkbox" id="chain-pat-d" checked style="width: 30px; height: 12px; margin: 0;">
+                        </div>
+                        <div class="pattern-select radio-group" style="display: flex; gap: 4px;">
+                            <input type="radio" name="pattern-sel" id="pat-a" value="0" checked>
+                            <label for="pat-a" class="wave-btn" style="min-width: 30px; height: 25px; line-height: 25px;">A</label>
+                            <input type="radio" name="pattern-sel" id="pat-b" value="1">
+                            <label for="pat-b" class="wave-btn" style="min-width: 30px; height: 25px; line-height: 25px;">B</label>
+                            <input type="radio" name="pattern-sel" id="pat-c" value="2">
+                            <label for="pat-c" class="wave-btn" style="min-width: 30px; height: 25px; line-height: 25px;">C</label>
+                            <input type="radio" name="pattern-sel" id="pat-d" value="3">
+                            <label for="pat-d" class="wave-btn" style="min-width: 30px; height: 25px; line-height: 25px;">D</label>
+                        </div>
                     </div>
                     
                     <div class="control-group horizontal" style="gap: 8px;">
