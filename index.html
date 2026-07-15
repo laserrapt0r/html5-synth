@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON SYNTH - Neon HTML5 Synthesizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=2">
+</head>
+<body>
+    <div id="app" class="synth-container">
+        
+        <!-- Header & Visualizer -->
+        <header class="synth-header panel">
+            <div class="logo">
+                <h1>NEON SYNTH</h1>
+            </div>
+            <div class="oscilloscope-container">
+                <canvas id="oscilloscope"></canvas>
+            </div>
+            <div class="master-controls">
+                <div class="control-group">
+                    <label>PRESET</label>
+                    <select id="preset-select" class="preset-dropdown">
+                        <option value="init">INIT PATCH</option>
+                        <option value="cyber-bass">CYBER BASS</option>
+                        <option value="neon-pad">NEON PAD</option>
+                        <option value="acid-pluck">ACID PLUCK</option>
+                        <option value="retro-brass">RETRO BRASS</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>MASTER</label>
+                    <input type="range" id="master-vol" min="0" max="1" step="0.01" value="0.7">
+                </div>
+                <div class="control-group">
+                    <label>VOICES</label>
+                    <div class="radio-group">
+                        <input type="radio" name="polyphony" id="poly-poly" value="poly" checked>
+                        <label for="poly-poly" class="wave-btn">POLY</label>
+                        <input type="radio" name="polyphony" id="poly-mono" value="mono">
+                        <label for="poly-mono" class="wave-btn">MONO</label>
+                        <input type="radio" name="polyphony" id="poly-legato" value="legato">
+                        <label for="poly-legato" class="wave-btn">LEGATO</label>
+                    </div>
+                </div>
+                <button id="power-btn" class="glow-btn power">INIT AUDIO</button>
+            </div>
+        </header>
+
+        <!-- Synthesizer Engines Grid -->
+        <main class="synth-engines">
+            
+            <!-- Oscillators Section -->
+            <section class="oscillators-panel panel module">
+                <h2>OSCILLATORS & LFO</h2>
+                <div class="vco-grid">
+                    <!-- VCO 1 -->
+                    <div class="vco-module">
+                        <div class="fx-header" style="margin-bottom: 8px;">
+                            <label class="switch">
+                                <input type="checkbox" id="vco1-on" checked>
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-magenta);">VCO 1</span>
+                        </div>
+                        <div class="radio-group wave-select">
+                            <input type="radio" name="vco1-wave" id="w1-saw" value="sawtooth" checked>
+                            <label for="w1-saw" class="wave-btn">SAW</label>
+                            <input type="radio" name="vco1-wave" id="w1-sqr" value="square">
+                            <label for="w1-sqr" class="wave-btn">SQR</label>
+                            <input type="radio" name="vco1-wave" id="w1-tri" value="triangle">
+                            <label for="w1-tri" class="wave-btn">TRI</label>
+                            <input type="radio" name="vco1-wave" id="w1-sin" value="sine">
+                            <label for="w1-sin" class="wave-btn">SIN</label>
+                        </div>
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>OCT</label>
+                                <input type="range" id="vco1-oct" min="-3" max="3" step="1" value="0">
+                            </div>
+                            <div class="control-group">
+                                <label>TUNE</label>
+                                <input type="range" id="vco1-tune" min="-1200" max="1200" value="0">
+                            </div>
+                            <div class="osc-controls vertical">
+                            <label>LEVEL</label>
+                            <input type="range" id="vco1-level" min="0" max="1" step="0.01" value="0.8">
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="osc-controls vertical">
+                            <label>PW</label>
+                            <input type="range" id="vco1-pw" min="0.05" max="0.95" step="0.01" value="0.5">
+                        </div>
+                        <div class="osc-controls vertical">
+                            <label>PWM</label>
+                            <input type="range" id="vco1-pwm" min="0" max="1" step="0.01" value="0">
+                        </div>
+                        <button id="btn-custom-osc" class="draw-btn">DRAW OSC</button>
+                    </div>
+                    </div>
+                    <!-- VCO 2 -->
+                    <div class="vco-module">
+                        <div class="fx-header" style="margin-bottom: 8px;">
+                            <label class="switch">
+                                <input type="checkbox" id="vco2-on" checked>
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-magenta);">VCO 2</span>
+                        </div>
+                        <div class="radio-group wave-select">
+                            <input type="radio" name="vco2-wave" id="w2-saw" value="sawtooth">
+                            <label for="w2-saw" class="wave-btn">SAW</label>
+                            <input type="radio" name="vco2-wave" id="w2-sqr" value="square" checked>
+                            <label for="w2-sqr" class="wave-btn">SQR</label>
+                            <input type="radio" name="vco2-wave" id="w2-tri" value="triangle">
+                            <label for="w2-tri" class="wave-btn">TRI</label>
+                            <input type="radio" name="vco2-wave" id="w2-sin" value="sine">
+                            <label for="w2-sin" class="wave-btn">SIN</label>
+                        </div>
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>OCT</label>
+                                <input type="range" id="vco2-oct" min="-3" max="3" step="1" value="-1">
+                            </div>
+                            <div class="control-group">
+                                <label>TUNE</label>
+                                <input type="range" id="vco2-tune" min="-1200" max="1200" value="7">
+                            </div>
+                            <div class="control-group">
+                                <label>LVL</label>
+                                <input type="range" id="vco2-level" min="0" max="1" step="0.01" value="0.6">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- VCO 3 -->
+                    <div class="vco-module">
+                        <div class="fx-header" style="margin-bottom: 8px;">
+                            <label class="switch">
+                                <input type="checkbox" id="vco3-on" checked>
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-magenta);">VCO 3</span>
+                        </div>
+                        <div class="radio-group wave-select">
+                            <input type="radio" name="vco3-wave" id="w3-saw" value="sawtooth">
+                            <label for="w3-saw" class="wave-btn">SAW</label>
+                            <input type="radio" name="vco3-wave" id="w3-sqr" value="square">
+                            <label for="w3-sqr" class="wave-btn">SQR</label>
+                            <input type="radio" name="vco3-wave" id="w3-tri" value="triangle">
+                            <label for="w3-tri" class="wave-btn">TRI</label>
+                            <input type="radio" name="vco3-wave" id="w3-sin" value="sine" checked>
+                            <label for="w3-sin" class="wave-btn">SIN</label>
+                        </div>
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>OCT</label>
+                                <input type="range" id="vco3-oct" min="-3" max="3" step="1" value="1">
+                            </div>
+                            <div class="control-group">
+                                <label>TUNE</label>
+                                <input type="range" id="vco3-tune" min="-1200" max="1200" value="-7">
+                            </div>
+                            <div class="control-group">
+                                <label>LVL</label>
+                                <input type="range" id="vco3-level" min="0" max="1" step="0.01" value="0.4">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Mixer & Noise -->
+                    <div class="mixer-module">
+                        <div class="fx-header" style="margin-bottom: 8px;">
+                            <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-cyan);">NOISE & GLIDE</span>
+                        </div>
+                        <div class="radio-group wave-select">
+                            <input type="radio" name="noise-type" id="n-white" value="white" checked>
+                            <label for="n-white" class="wave-btn">WHT</label>
+                            <input type="radio" name="noise-type" id="n-pink" value="pink">
+                            <label for="n-pink" class="wave-btn">PNK</label>
+                        </div>
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>NOISE</label>
+                                <input type="range" id="noise-level" min="0" max="1" step="0.01" value="0">
+                            </div>
+                            <div class="control-group">
+                                <label>GLIDE</label>
+                                <input type="range" id="glide-time" min="0" max="2" step="0.01" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LFO 1 -->
+                    <div class="vco-module">
+                        <div class="fx-header" style="margin-bottom: 8px;">
+                            <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-cyan);">LFO 1</span>
+                        </div>
+                        <div class="radio-group wave-select">
+                            <input type="radio" name="lfo1-wave" id="l1-sin" value="sine" checked>
+                            <label for="l1-sin" class="wave-btn">SIN</label>
+                            <input type="radio" name="lfo1-wave" id="l1-tri" value="triangle">
+                            <label for="l1-tri" class="wave-btn">TRI</label>
+                            <input type="radio" name="lfo1-wave" id="l1-sqr" value="square">
+                            <label for="l1-sqr" class="wave-btn">SQR</label>
+                            <input type="radio" name="lfo1-wave" id="l1-saw" value="sawtooth">
+                            <label for="l1-saw" class="wave-btn">SAW</label>
+                            <input type="radio" name="lfo1-wave" id="l1-rnd" value="random">
+                            <label for="l1-rnd" class="wave-btn">RND</label>
+                        </div>
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>RATE</label>
+                                <input type="range" id="lfo1-rate" min="0.1" max="30" step="0.1" value="5">
+                            </div>
+                            <div class="control-group">
+                                <label>-> PITCH</label>
+                                <input type="range" id="lfo1-pitch" min="0" max="200" step="1" value="0">
+                            </div>
+                            <div class="control-group">
+                                <label>-> VCF</label>
+                                <input type="range" id="lfo1-cutoff" min="0" max="2000" step="10" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LFO 2 -->
+                    <div class="vco-module">
+                        <div class="fx-header" style="margin-bottom: 8px;">
+                            <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-cyan);">LFO 2 (TREMOLO)</span>
+                        </div>
+                        <div class="radio-group wave-select">
+                            <input type="radio" name="lfo2-wave" id="l2-sin" value="sine" checked>
+                            <label for="l2-sin" class="wave-btn">SIN</label>
+                            <input type="radio" name="lfo2-wave" id="l2-tri" value="triangle">
+                            <label for="l2-tri" class="wave-btn">TRI</label>
+                            <input type="radio" name="lfo2-wave" id="l2-sqr" value="square">
+                            <label for="l2-sqr" class="wave-btn">SQR</label>
+                            <input type="radio" name="lfo2-wave" id="l2-saw" value="sawtooth">
+                            <label for="l2-saw" class="wave-btn">SAW</label>
+                            <input type="radio" name="lfo2-wave" id="l2-rnd" value="random">
+                            <label for="l2-rnd" class="wave-btn">RND</label>
+                        </div>
+                        <div class="controls-row">
+                            <div class="control-group">
+                                <label>RATE</label>
+                                <input type="range" id="lfo2-rate" min="0.1" max="30" step="0.1" value="2">
+                            </div>
+                            <div class="control-group">
+                                <label>-> AMP</label>
+                                <input type="range" id="lfo2-amp" min="0" max="0.5" step="0.01" value="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Middle Column: Filter & LFO -->
+            <div class="mid-col">
+                <section class="filter-panel panel module">
+                    <h2>VCF (FILTER)</h2>
+                    
+                    <div class="radio-group wave-select filter-type-select">
+                        <input type="radio" name="filter-type" id="f-lp" value="lowpass" checked>
+                        <label for="f-lp" class="wave-btn">LP</label>
+                        <input type="radio" name="filter-type" id="f-hp" value="highpass">
+                        <label for="f-hp" class="wave-btn">HP</label>
+                        <input type="radio" name="filter-type" id="f-bp" value="bandpass">
+                        <label for="f-bp" class="wave-btn">BP</label>
+                        <input type="radio" name="filter-type" id="f-no" value="notch">
+                        <label for="f-no" class="wave-btn">NOTCH</label>
+                    </div>
+
+                    <div class="controls-row filter-main">
+                        <div class="control-group">
+                            <label>CUTOFF</label>
+                            <input type="range" id="filter-cutoff" min="20" max="20000" step="1" value="1500">
+                        </div>
+                        <div class="control-group">
+                            <label>RES (Q)</label>
+                            <input type="range" id="filter-res" min="0" max="30" step="0.1" value="2">
+                        </div>
+                    </div>
+                    
+                    <h3>VCF ENV</h3>
+                    <div class="controls-row env-sliders">
+                        <div class="control-group vertical">
+                            <input type="range" id="f-env-a" min="0.01" max="5" step="0.01" value="0.1" orient="vertical">
+                            <label>A</label>
+                        </div>
+                        <div class="control-group vertical">
+                            <input type="range" id="f-env-d" min="0.01" max="5" step="0.01" value="0.3" orient="vertical">
+                            <label>D</label>
+                        </div>
+                        <div class="control-group vertical">
+                            <input type="range" id="f-env-s" min="0" max="1" step="0.01" value="0.2" orient="vertical">
+                            <label>S</label>
+                        </div>
+                        <div class="control-group vertical">
+                            <input type="range" id="f-env-r" min="0.01" max="5" step="0.01" value="0.5" orient="vertical">
+                            <label>R</label>
+                        </div>
+                        <div class="control-group vertical amt">
+                            <input type="range" id="f-env-amt" min="-5000" max="5000" step="1" value="2500" orient="vertical">
+                            <label>AMT</label>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="amp-panel panel module">
+                    <h2>VCA (AMP ENV)</h2>
+                    <div class="controls-row env-sliders">
+                        <div class="control-group vertical">
+                            <input type="range" id="a-env-a" min="0.01" max="5" step="0.01" value="0.05" orient="vertical">
+                            <label>A</label>
+                        </div>
+                        <div class="control-group vertical">
+                            <input type="range" id="a-env-d" min="0.01" max="5" step="0.01" value="0.5" orient="vertical">
+                            <label>D</label>
+                        </div>
+                        <div class="control-group vertical">
+                            <input type="range" id="a-env-s" min="0" max="1" step="0.01" value="0.8" orient="vertical">
+                            <label>S</label>
+                        </div>
+                        <div class="control-group vertical">
+                            <input type="range" id="a-env-r" min="0.01" max="10" step="0.01" value="1.0" orient="vertical">
+                            <label>R</label>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: FX -->
+            <div class="right-col">
+
+                <section class="fx-panel panel module">
+                    <h2>EFFECTS RACK</h2>
+                    <div class="fx-grid">
+                        <!-- Distortion -->
+                        <div class="fx-module">
+                            <div class="fx-header">
+                                <label class="switch">
+                                    <input type="checkbox" id="dist-on">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span>DISTORTION</span>
+                            </div>
+                            <div class="controls-row">
+                                <div class="control-group">
+                                    <label>DRIVE</label>
+                                    <input type="range" id="dist-drive" min="0" max="100" value="0">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Delay -->
+                        <div class="fx-module">
+                            <div class="fx-header">
+                                <label class="switch">
+                                    <input type="checkbox" id="delay-on">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span>DELAY</span>
+                            </div>
+                            <div class="controls-row">
+                                <div class="control-group">
+                                    <label>TIME</label>
+                                    <input type="range" id="delay-time" min="0.01" max="1" step="0.01" value="0.3">
+                                </div>
+                                <div class="control-group">
+                                    <label>FDBK</label>
+                                    <input type="range" id="delay-fb" min="0" max="0.9" step="0.01" value="0.4">
+                                </div>
+                                <div class="control-group">
+                                    <label>MIX</label>
+                                    <input type="range" id="delay-mix" min="0" max="1" step="0.01" value="0.3">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reverb -->
+                        <div class="fx-module">
+                            <div class="fx-header">
+                                <label class="switch">
+                                    <input type="checkbox" id="reverb-on">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span>REVERB</span>
+                            </div>
+                            <div class="controls-row">
+                                <div class="control-group">
+                                    <label>MIX</label>
+                                    <input type="range" id="reverb-mix" min="0" max="1" step="0.01" value="0.2">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+        </main>
+
+        <!-- On-Screen Keyboard -->
+        <section class="keyboard-panel panel module" style="height: 70px; flex-shrink: 0; padding: 5px;">
+            <div class="keyboard" id="piano-keyboard">
+                <!-- Keys generated by JS -->
+            </div>
+        </section>
+
+        <!-- Sequencer -->
+        <section class="sequencer-panel panel module">
+            <div class="seq-header">
+                <h2>32-STEP SEQUENCER</h2>
+                <div class="seq-controls" style="display: flex; gap: 15px; align-items: center;">
+                    <button id="seq-play" class="glow-btn play-btn">PLAY</button>
+                    
+                    <div class="control-group horizontal">
+                        <label>BPM</label>
+                        <input type="range" id="seq-bpm-range" value="120" min="40" max="300" style="width:100px;">
+                        <span id="bpm-display" class="led-display">120</span>
+                    </div>
+
+                    <div class="control-group horizontal">
+                        <label>SWING</label>
+                        <input type="range" id="seq-swing" min="0" max="0.75" step="0.05" value="0" style="width:80px;">
+                    </div>
+
+                    <div class="control-group horizontal" style="gap: 5px; border-left: 1px solid #333; padding-left: 10px;">
+                        <label>ARP</label>
+                        <label class="switch">
+                            <input type="checkbox" id="arp-on">
+                            <span class="slider round"></span>
+                        </label>
+                        <select id="arp-mode" class="preset-dropdown">
+                            <option value="up">UP</option>
+                            <option value="down">DOWN</option>
+                            <option value="updown">UP/DOWN</option>
+                            <option value="random">RND</option>
+                        </select>
+                    </div>
+                    
+                    <div class="pattern-select radio-group" style="margin-left: auto; display: flex; gap: 4px;">
+                        <input type="radio" name="pattern-sel" id="pat-a" value="0" checked>
+                        <label for="pat-a" class="wave-btn" style="min-width: 30px;">A</label>
+                        <input type="radio" name="pattern-sel" id="pat-b" value="1">
+                        <label for="pat-b" class="wave-btn" style="min-width: 30px;">B</label>
+                        <input type="radio" name="pattern-sel" id="pat-c" value="2">
+                        <label for="pat-c" class="wave-btn" style="min-width: 30px;">C</label>
+                        <input type="radio" name="pattern-sel" id="pat-d" value="3">
+                        <label for="pat-d" class="wave-btn" style="min-width: 30px;">D</label>
+                    </div>
+                    
+                    <div class="control-group horizontal" style="gap: 8px;">
+                        <label class="switch">
+                            <input type="checkbox" id="chain-mode">
+                            <span class="slider round"></span>
+                        </label>
+                        <span style="font-size: 0.85rem; font-weight: bold; color: var(--neon-cyan);">CHAIN</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="seq-grid" id="sequencer-steps">
+                <!-- Steps generated by JS -->
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Custom Osc Modal -->
+    <div id="osc-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>DRAW CUSTOM OSCILLATOR</h2>
+                <button id="btn-close-modal">X</button>
+            </div>
+            <div class="modal-body">
+                <canvas id="osc-canvas" width="512" height="256"></canvas>
+                <div class="modal-controls">
+                    <button id="btn-clear-canvas">CLEAR</button>
+                    <button id="btn-smooth-canvas">SMOOTH</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>
