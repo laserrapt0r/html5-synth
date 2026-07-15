@@ -187,6 +187,7 @@ export class Synth {
                 updateSAndH();
             }
         } else {
+            this.lfo1RndSource.offset.value = 0; // Reset DC offset
             this.lfo1.type = wave;
             this.lfo1.frequency.value = this.params.lfo1.rate;
             this.lfo1.connect(this.lfo1PitchGain);
@@ -214,6 +215,7 @@ export class Synth {
                 updateSAndH();
             }
         } else {
+            this.lfo2RndSource.offset.value = 0; // Reset DC offset
             this.lfo2.type = wave;
             this.lfo2.frequency.value = this.params.lfo2.rate;
             this.lfo2.connect(this.lfo2AmpGain);
@@ -242,7 +244,6 @@ export class Synth {
                     document.getElementById('delay-mix').value
                 );
             }
-            
             if (key === 'reverb-on' || key === 'reverb-mix') {
                 this.effects.setReverb(
                     document.getElementById('reverb-on').checked,
@@ -259,6 +260,18 @@ export class Synth {
             // Update params object
             if (this.params[module]) {
                 this.params[module][key] = value;
+            }
+
+            if (module === 'vco1' && (key === 'wave' || key === 'pw' || key === 'pwm')) {
+                // To update PW of active voices:
+                Object.values(this.activeVoices).forEach(voice => {
+                    if (voice.vco1Delay) {
+                        voice.vco1Delay.delayTime.value = this.params.vco1.pw * 0.002;
+                    }
+                });
+                if (this.monoVoice && this.monoVoice.vco1Delay) {
+                    this.monoVoice.vco1Delay.delayTime.value = this.params.vco1.pw * 0.002;
+                }
             }
 
             // Real-time update active voices
