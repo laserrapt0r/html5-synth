@@ -105,13 +105,17 @@ export class Synth {
             
             // Store voice to manage note-off
             if (this.activeVoices[note]) {
-                this.activeVoices[note].stop(time); // Stop old voice if same note triggered
+                this.activeVoices[note].forceStop(time); // Fast kill old voice if same note triggered
             }
             this.activeVoices[note] = voice;
             
             if (duration > 0) {
                 voice.stop(time + duration);
-                setTimeout(() => delete this.activeVoices[note], (duration + parseFloat(this.params.aEnv.r)) * 1000);
+                setTimeout(() => {
+                    if (this.activeVoices[note] === voice) {
+                        delete this.activeVoices[note];
+                    }
+                }, (duration + parseFloat(this.params.aEnv.r)) * 1000);
             }
         } else {
             // Mono / Legato Mode
