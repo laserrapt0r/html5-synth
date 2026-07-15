@@ -14,11 +14,12 @@ export class Voice {
         this.filter = this.ctx.createBiquadFilter();
         this.filter.connect(this.output);
 
-        this.noiseBuffer = null;
+        this.whiteNoiseBuffer = null;
+        this.pinkNoiseBuffer = null;
         this.noiseSource = null;
         this.noiseGain = this.ctx.createGain();
         this.noiseGain.connect(this.filter);
-        this.createNoiseBuffer();
+        this.createNoiseBuffers();
 
         this.pitchTarget = this.ctx.createGain();
         this.pitchTarget.gain.value = 1;
@@ -33,12 +34,30 @@ export class Voice {
         this.noteFrequency = 440;
     }
 
-    createNoiseBuffer() {
+    createNoiseBuffers() {
         const bufferSize = this.ctx.sampleRate * 2;
-        this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const output = this.noiseBuffer.getChannelData(0);
+        
+        // White Noise Buffer
+        this.whiteNoiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const whiteData = this.whiteNoiseBuffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1;
+            whiteData[i] = Math.random() * 2 - 1;
+        }
+
+        // Pink Noise Buffer (Paul Kellet's approximation)
+        this.pinkNoiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const pinkData = this.pinkNoiseBuffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            let white = Math.random() * 2 - 1;
+            b0 = 0.99886 * b0 + white * 0.0555179;
+            b1 = 0.99332 * b1 + white * 0.0750759;
+            b2 = 0.96900 * b2 + white * 0.1538520;
+            b3 = 0.86650 * b3 + white * 0.3104856;
+            b4 = 0.55000 * b4 + white * 0.5329522;
+            b5 = -0.7616 * b5 - white * 0.0168980;
+            pinkData[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+            b6 = white * 0.115926;
         }
     }
 
@@ -99,7 +118,7 @@ export class Voice {
         this.oscs.forEach(osc => osc.start(time));
         
         this.noiseSource = this.ctx.createBufferSource();
-        this.noiseSource.buffer = this.noiseBuffer;
+        this.noiseSource.buffer = this.getParam('noise', 'type') === 'pink' ? this.pinkNoiseBuffer : this.whiteNoiseBuffer;
         this.noiseSource.loop = true;
         this.noiseSource.connect(this.noiseGain);
         this.noiseSource.start(time);
@@ -190,6 +209,17 @@ export class Voice {
         }
 
         this.noiseGain.gain.value = parseFloat(this.getParam('noise', 'level'));
+        const targetNoiseBuffer = this.getParam('noise', 'type') === 'pink' ? this.pinkNoiseBuffer : this.whiteNoiseBuffer;
+        if (this.noiseSource && this.noiseSource.buffer !== targetNoiseBuffer) {
+            const newSource = this.ctx.createBufferSource();
+            newSource.buffer = targetNoiseBuffer;
+            newSource.loop = true;
+            newSource.connect(this.noiseGain);
+            newSource.start();
+            this.noiseSource.stop();
+            this.noiseSource.disconnect();
+            this.noiseSource = newSource;
+        }
 
         this.filter.type = this.getParam('filter', 'type');
         this.filter.Q.value = parseFloat(this.getParam('filter', 'res'));
