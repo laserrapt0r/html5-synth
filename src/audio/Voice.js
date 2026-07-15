@@ -132,8 +132,13 @@ export class Voice {
         
         const r = parseFloat(this.getParam('aEnv', 'r'));
         
-        // Fix for scheduling into the future: use setTargetAtTime so we don't need to know the exact value at 'time'
-        this.output.gain.cancelScheduledValues(time);
+        // Use cancelAndHoldAtTime to correctly calculate the envelope value at the exact stop time
+        if (typeof this.output.gain.cancelAndHoldAtTime === 'function') {
+            this.output.gain.cancelAndHoldAtTime(time);
+        } else {
+            this.output.gain.cancelScheduledValues(time);
+            this.output.gain.setValueAtTime(this.output.gain.value, time);
+        }
         this.output.gain.setTargetAtTime(0, time, Math.max(0.01, r / 3));
 
         const stopTime = time + r + 0.1;
