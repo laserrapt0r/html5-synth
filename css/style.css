@@ -745,26 +745,49 @@ input[type="range"].locked::-moz-range-thumb {
     color: #000;
 }
 
-/* Power Off Overlay state */
-body.power-off #app::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(4, 5, 8, 0.85);
-    z-index: 1000;
-    pointer-events: all;
-    transition: opacity 1.5s ease-in-out;
-}
-
-body.powered-on #app::after {
-    opacity: 0;
-    pointer-events: none;
+/* Power Off State: De-energized look */
+body.power-off {
+    --neon-cyan: #2a3b4c;
+    --neon-magenta: #4a2b4c;
+    --neon-lime: #2b4a2b;
+    --neon-yellow: #4a4a2b;
+    --text-bright: #556;
+    --border-glow: none;
+    --border-glow-magenta: none;
+    pointer-events: none; /* Disable interaction with the synth */
 }
 
 body.power-off #power-btn {
-    position: relative;
-    z-index: 1001; /* Above the overlay */
+    pointer-events: auto; /* Ensure power button can be clicked */
     animation: pulse-glow-btn 2s infinite;
+    --neon-cyan: #00f3ff; /* Keep power button glowing */
+    color: var(--neon-cyan);
+}
+
+body.power-off .glow-btn,
+body.power-off .step-btn,
+body.power-off .key.active,
+body.power-off input[type="range"]::-webkit-slider-thumb,
+body.power-off input[type="range"]::-moz-range-thumb,
+body.power-off .slider,
+body.power-off .wave-btn,
+body.power-off .led-display,
+body.power-off h2,
+body.power-off h3,
+body.power-off .logo h1 {
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+body.power-off .led-display {
+    color: #222 !important;
+}
+
+body.power-off .key.white.active {
+    background: #1a1a24 !important;
+}
+body.power-off .key.black.active {
+    background: #111 !important;
 }
 
 @keyframes pulse-glow-btn {
@@ -773,11 +796,52 @@ body.power-off #power-btn {
     100% { box-shadow: 0 0 5px var(--neon-cyan); filter: brightness(1); }
 }
 
+/* Power On Animations */
 body.powered-on {
-    animation: power-on-flash 2s cubic-bezier(0.1, 1.5, 0.5, 1) forwards;
+    animation: power-on-surge 1s cubic-bezier(0.1, 1.5, 0.5, 1) forwards;
 }
 
-@keyframes power-on-flash {
-    0% { filter: brightness(1.5) saturate(1.5); }
+@keyframes power-on-surge {
+    0% { filter: brightness(0.5) saturate(0.5); }
+    50% { filter: brightness(1.5) saturate(1.5); }
     100% { filter: brightness(1) saturate(1); }
+}
+
+/* Breathing Effects for Lights */
+body.powered-on .led-display,
+body.powered-on .logo h1 {
+    animation: breath-slow 4s ease-in-out infinite alternate;
+}
+
+body.powered-on input[type="range"]::-webkit-slider-thumb {
+    animation: breath-med 3s ease-in-out infinite alternate;
+}
+
+body.powered-on .step-btn.active,
+body.powered-on .key.active {
+    animation: flicker-breath 5s ease-in-out infinite alternate;
+}
+
+body.powered-on .glow-btn.playing {
+    animation: breath-fast 2s ease-in-out infinite alternate;
+}
+
+@keyframes breath-slow {
+    0% { filter: brightness(1); }
+    100% { filter: brightness(0.85); }
+}
+@keyframes breath-med {
+    0% { filter: brightness(0.9); }
+    100% { filter: brightness(1.1); }
+}
+@keyframes breath-fast {
+    0% { filter: brightness(0.9); box-shadow: 0 0 8px rgba(57, 255, 20, 0.4); }
+    100% { filter: brightness(1.2); box-shadow: 0 0 15px rgba(57, 255, 20, 0.6); }
+}
+@keyframes flicker-breath {
+    0% { filter: brightness(0.9); }
+    48% { filter: brightness(1.1); }
+    50% { filter: brightness(0.8); }
+    52% { filter: brightness(1.1); }
+    100% { filter: brightness(0.95); }
 }
