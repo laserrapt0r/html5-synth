@@ -442,8 +442,8 @@ input:checked + .slider.round:before {
 
 .seq-grid {
     display: grid;
-    grid-template-columns: repeat(32, minmax(40px, 1fr));
-    gap: 6px;
+    grid-template-columns: repeat(32, minmax(0, 1fr));
+    gap: 3px;
     height: 100%;
     overflow-x: auto;
     padding-bottom: 10px; /* Space for the scrollbar */
@@ -507,13 +507,14 @@ input:checked + .slider.round:before {
 /* Native select is unavoidable for pitch unless custom built, but we can style it strictly */
 .step-pitch {
     width: 100%;
+    min-width: 0;
     background: #000;
     color: var(--text-bright);
     border: 1px solid #1a1f2e;
-    font-size: 0.65rem;
+    font-size: 0.55rem;
     font-family: var(--font-mono);
     text-align: center;
-    padding: 2px;
+    padding: 2px 0;
     appearance: none;
     cursor: pointer;
 }
