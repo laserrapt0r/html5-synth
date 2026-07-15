@@ -24,7 +24,7 @@ export class Sequencer {
             Array.from({length: this.numSteps}, () => ({ active: false, note: 60, locks: {} }))
         );
         
-        this.activeChainPatterns = [true, true, true, true];
+        this.activePlayPatterns = [true, false, false, false];
 
         // Timing scheduling
         this.lookahead = 25.0; // ms
@@ -55,20 +55,8 @@ export class Sequencer {
 
     setEditPattern(patternIndex) {
         this.currentEditPattern = patternIndex;
-        if (!this.isPlaying && !this.chainMode) {
-            this.currentPlayPattern = patternIndex;
-        }
-    }
-
-    setChainPatternActive(patternIndex, active) {
-        this.activeChainPatterns[patternIndex] = active;
-    }
-
-    setChainMode(active) {
-        this.chainMode = active;
-        if (active) {
-            this.currentPlayPattern = this.currentEditPattern;
-        }
+    setPlayPatternActive(patternIndex, active) {
+        this.activePlayPatterns[patternIndex] = active;
     }
 
     addArpNote(note) {
@@ -109,22 +97,6 @@ export class Sequencer {
         this.currentStep++;
         if (this.currentStep === this.numSteps) {
             this.currentStep = 0;
-            if (this.chainMode) {
-                // Find next active pattern
-                let nextPat = (this.currentPlayPattern + 1) % this.numPatterns;
-                let found = false;
-                for (let i = 0; i < this.numPatterns; i++) {
-                    if (this.activeChainPatterns[nextPat]) {
-                        found = true;
-                        break;
-                    }
-                    nextPat = (nextPat + 1) % this.numPatterns;
-                }
-                
-                if (found) {
-                    this.currentPlayPattern = nextPat;
-                }
-            }
         }
     }
 
@@ -209,20 +181,21 @@ export class Sequencer {
         } 
         // Normal Sequencer Logic
         else if (!arpOn) {
-            const playPatternIndex = this.chainMode ? this.currentPlayPattern : this.currentEditPattern;
-            const stepData = this.patterns[playPatternIndex][stepNumber];
-            
-            if (stepData.active) {
-                this.synth.playNote(stepData.note, scheduledTime, baseGateDuration, stepData.locks);
+            for (let i = 0; i < this.numPatterns; i++) {
+                if (this.activePlayPatterns[i]) {
+                    const stepData = this.patterns[i][stepNumber];
+                    if (stepData.active) {
+                        this.synth.playNote(stepData.note, scheduledTime, baseGateDuration, stepData.locks);
+                    }
+                }
             }
         }
 
         // Notify UI 
         if (this.onStep) {
-            const playPatternIndex = this.chainMode ? this.currentPlayPattern : this.currentEditPattern;
             const timeUntilNote = (scheduledTime - this.ctx.currentTime) * 1000;
             setTimeout(() => {
-                this.onStep(stepNumber, playPatternIndex);
+                this.onStep(stepNumber, this.currentEditPattern);
             }, Math.max(0, timeUntilNote));
         }
     }
@@ -255,13 +228,12 @@ export class Sequencer {
         this.autoStartedByArp = false;
         clearTimeout(this.timerID);
         this.currentStep = 0;
-        this.currentPlayPattern = this.chainMode ? 0 : this.currentEditPattern;
         
         const playBtn = document.getElementById('seq-play');
         if (playBtn) {
             playBtn.textContent = 'PLAY';
             playBtn.classList.remove('playing');
         }
-        if (this.onStep) this.onStep(-1, this.currentPlayPattern);
+        if (this.onStep) this.onStep(-1, this.currentEditPattern);
     }
 }

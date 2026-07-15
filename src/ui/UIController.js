@@ -272,8 +272,14 @@ export class UIController {
 
         this.renderGridForPattern(0);
 
-        document.getElementById('chain-mode').addEventListener('change', (e) => {
-            this.sequencer.setChainMode(e.target.checked);
+        const playToggles = ['play-pat-0', 'play-pat-1', 'play-pat-2', 'play-pat-3'];
+        playToggles.forEach((id, index) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', (e) => {
+                    this.sequencer.setPlayPatternActive(index, e.target.checked);
+                });
+            }
         });
 
         document.querySelectorAll('input[name="pattern-sel"]').forEach(radio => {
@@ -284,15 +290,6 @@ export class UIController {
             });
         });
 
-        const chainToggles = ['chain-pat-a', 'chain-pat-b', 'chain-pat-c', 'chain-pat-d'];
-        chainToggles.forEach((id, index) => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('change', (e) => {
-                    this.sequencer.setChainPatternActive(index, e.target.checked);
-                });
-            }
-        });
 
         this.sequencer.onStep = (step, playPattern) => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('current'));
