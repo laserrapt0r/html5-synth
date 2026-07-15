@@ -98,6 +98,7 @@ export class Synth {
             // Connect LFOs
             this.lfo1PitchGain.connect(voice.pitchTarget);
             this.lfo1CutoffGain.connect(voice.filterTarget);
+            this.lfo1PwmGain.connect(voice.vco1DcOffset.offset);
             
             voice.output.connect(this.effects.input);
             voice.start(freq, time, pLocks);

@@ -26,6 +26,9 @@ export class Voice {
         this.filterTarget = this.ctx.createGain();
         this.filterTarget.gain.value = 1;
         
+        this.vco1DcOffset = this.ctx.createConstantSource();
+        this.vco1DcOffset.start();
+        
         this.isActive = false;
         this.noteFrequency = 440;
     }
@@ -59,9 +62,6 @@ export class Voice {
                 this.vco1WaveShaper = this.ctx.createWaveShaper();
                 this.vco1WaveShaper.curve = curve;
                 this.vco1WaveShaper.oversample = '4x';
-                
-                this.vco1DcOffset = this.ctx.createConstantSource();
-                this.vco1DcOffset.start();
                 
                 // Normal routing
                 osc.connect(gain);
