@@ -10,18 +10,18 @@ export class Sequencer {
         this.numSteps = 32;
         this.numPatterns = 4;
         this.currentEditPattern = 0;
-        this.currentPlayPattern = 0;
-        this.chainMode = false;
         
         this.arpNotes = []; // Stores MIDI note numbers held down
         this.arpIndex = 0;
         
-        // Expose callback for UI
-        this.onStep = null;
+        // Gate length (0.1 = 10% staccato, 1.0 = 100% legato)
+        this.gate = 0.8;
+        // Time division: fraction of a beat per step (0.25 = 1/16, 0.5 = 1/8, 0.125 = 1/32)
+        this.timeDiv = 0.25;
         
         // Sequence Data: 4 Patterns of 32 steps each
         this.patterns = Array.from({length: this.numPatterns}, () => 
-            Array.from({length: this.numSteps}, () => ({ active: false, note: 60, locks: {} }))
+            Array.from({length: this.numSteps}, () => ({ active: false, note: 60, tie: false, locks: {} }))
         );
         
         this.trackBanks = [0, 1]; // Track 1 plays Bank A(0), Track 2 plays Bank B(1)
@@ -40,9 +40,21 @@ export class Sequencer {
         this.bpm = bpm;
     }
 
+    setGate(value) {
+        this.gate = Math.max(0.1, Math.min(1.0, parseFloat(value)));
+    }
+
+    setTimeDiv(value) {
+        this.timeDiv = parseFloat(value);
+    }
+
     setStep(index, active, note, patternIndex = this.currentEditPattern) {
         if (active !== undefined) this.patterns[patternIndex][index].active = active;
         if (note !== undefined) this.patterns[patternIndex][index].note = note;
+    }
+
+    setStepTie(index, tie, patternIndex = this.currentEditPattern) {
+        this.patterns[patternIndex][index].tie = tie;
     }
 
     setStepLock(index, group, param, value, patternIndex = this.currentEditPattern) {
@@ -94,7 +106,7 @@ export class Sequencer {
 
     nextNote() {
         const secondsPerBeat = 60.0 / this.bpm;
-        this.nextNoteTime += 0.25 * secondsPerBeat; // 16th notes
+        this.nextNoteTime += this.timeDiv * secondsPerBeat;
         
         this.currentStep++;
         if (this.currentStep === this.numSteps) {
@@ -102,15 +114,28 @@ export class Sequencer {
         }
     }
 
+    // Count how many consecutive tie steps follow a given step in a pattern
+    _countTieChain(bankIdx, stepNumber) {
+        let count = 0;
+        for (let i = stepNumber + 1; i < this.numSteps; i++) {
+            if (this.patterns[bankIdx][i].tie) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        return count;
+    }
+
     scheduleNote(stepNumber, time) {
         const secondsPerBeat = 60.0 / this.bpm;
-        const baseGateDuration = (0.25 * secondsPerBeat) * 0.8;
+        const stepDuration = this.timeDiv * secondsPerBeat;
         
-        // Swing logic: delay odd 16th notes
+        // Swing logic: delay odd steps
         let swingDelay = 0;
         if (stepNumber % 2 !== 0) {
             const swingAmt = parseFloat(this.synth.params.master.swing || 0);
-            swingDelay = swingAmt * (0.25 * secondsPerBeat);
+            swingDelay = swingAmt * stepDuration;
         }
         
         const scheduledTime = time + swingDelay;
@@ -118,6 +143,7 @@ export class Sequencer {
         // Arpeggiator Logic
         const arpOn = this.synth.params.master.arpOn;
         if (arpOn && this.arpNotes.length > 0) {
+            const arpGateDuration = stepDuration * this.gate;
             let baseNotes = [...this.arpNotes];
             const arpOctaves = parseInt(this.synth.params.master.arpOctaves) || 1;
             
@@ -178,7 +204,7 @@ export class Sequencer {
             }
             
             const noteToPlay = notes[this.arpIndex % notes.length];
-            this.synth.playNote(noteToPlay, scheduledTime, baseGateDuration);
+            this.synth.playNote(noteToPlay, scheduledTime, arpGateDuration);
             this.arpIndex++;
         } 
         // Normal Sequencer Logic
@@ -187,8 +213,17 @@ export class Sequencer {
                 const bankIdx = this.trackBanks[trackIndex];
                 if (bankIdx >= 0 && bankIdx < this.numPatterns) {
                     const stepData = this.patterns[bankIdx][stepNumber];
+                    
+                    // Skip tie steps — they extend the previous note, not trigger a new one
+                    if (stepData.tie) continue;
+                    
                     if (stepData.active) {
-                        this.synth.playNote(stepData.note, scheduledTime, baseGateDuration, stepData.locks);
+                        // Count tie chain to extend gate duration
+                        const tieCount = this._countTieChain(bankIdx, stepNumber);
+                        const totalSteps = 1 + tieCount;
+                        const gateDuration = (stepDuration * totalSteps) * this.gate;
+                        
+                        this.synth.playNote(stepData.note, scheduledTime, gateDuration, stepData.locks);
                     }
                 }
             }
@@ -198,7 +233,7 @@ export class Sequencer {
         if (this.onStep) {
             const timeUntilNote = (scheduledTime - this.ctx.currentTime) * 1000;
             setTimeout(() => {
-                this.onStep(stepNumber, this.currentEditPattern);
+                this.onStep(stepNumber);
             }, Math.max(0, timeUntilNote));
         }
     }

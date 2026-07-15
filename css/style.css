@@ -38,8 +38,9 @@ body {
 }
 
 .synth-container {
-    width: 1300px;
-    height: 870px;
+    width: 100%;
+    max-width: 1600px;
+    height: 920px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -423,7 +424,7 @@ input:checked + .slider.round:before {
 /* Sequencer */
 .sequencer-panel {
     flex-shrink: 0;
-    height: 170px;
+    min-height: 200px;
 }
 
 .seq-header {
@@ -501,6 +502,23 @@ input:checked + .slider.round:before {
 .step-btn.current {
     border-color: var(--neon-yellow);
     box-shadow: 0 0 10px rgba(255, 234, 0, 0.3);
+}
+
+.step-btn.tie {
+    background: rgba(0, 243, 255, 0.15);
+    border-left: none;
+    border-color: var(--neon-cyan);
+    position: relative;
+}
+.step-btn.tie::before {
+    content: '\2190';
+    position: absolute;
+    top: 50%;
+    left: -2px;
+    transform: translateY(-50%);
+    font-size: 0.6rem;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 4px var(--neon-cyan);
 }
 
 /* Native select is unavoidable for pitch unless custom built, but we can style it strictly */

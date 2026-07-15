@@ -54,7 +54,6 @@ export class UIController {
             { id: 'a-env-d', group: 'aEnv', param: 'd', type: 'range' },
             { id: 'a-env-s', group: 'aEnv', param: 's', type: 'range' },
             { id: 'a-env-r', group: 'aEnv', param: 'r', type: 'range' },
-            { id: 'glide-time', group: 'master', param: 'glide', type: 'range' },
             { id: 'seq-swing', group: 'master', param: 'swing', type: 'range' },
             { id: 'arp-on', group: 'master', param: 'arpOn', type: 'checkbox' },
             { id: 'arp-mode', group: 'master', param: 'arpMode', type: 'select' },
@@ -210,6 +209,20 @@ export class UIController {
             this.sequencer.setBpm(e.target.value);
             bpmDisplay.textContent = e.target.value;
         });
+
+        const gateRange = document.getElementById('seq-gate');
+        if (gateRange) {
+            gateRange.addEventListener('input', (e) => {
+                this.sequencer.setGate(e.target.value);
+            });
+        }
+
+        const timeDivSelect = document.getElementById('seq-timediv');
+        if (timeDivSelect) {
+            timeDivSelect.addEventListener('change', (e) => {
+                this.sequencer.setTimeDiv(e.target.value);
+            });
+        }
     }
 
     initSequencerGrid() {
@@ -257,7 +270,24 @@ export class UIController {
                         btn.classList.toggle('active');
                         const isActive = btn.classList.contains('active');
                         this.sequencer.setStep(i, isActive, undefined, this.trackBanks[trackIndex]);
+                        // If deactivating, also remove tie
+                        if (!isActive) {
+                            this.sequencer.setStepTie(i, false, this.trackBanks[trackIndex]);
+                            btn.classList.remove('tie');
+                        }
                     }
+                });
+
+                // Right-click to toggle tie
+                btn.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    const bankIdx = this.trackBanks[trackIndex];
+                    const stepData = this.sequencer.patterns[bankIdx][i];
+                    // Only allow tie on step index > 0
+                    if (i === 0) return;
+                    const newTie = !stepData.tie;
+                    this.sequencer.setStepTie(i, newTie, bankIdx);
+                    btn.classList.toggle('tie', newTie);
                 });
 
                 const pitchSelect = document.createElement('select');
@@ -331,11 +361,8 @@ export class UIController {
             
             const stepData = patternData[i];
             
-            if (stepData.active) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
+            btn.classList.toggle('active', stepData.active);
+            btn.classList.toggle('tie', stepData.tie);
             select.value = stepData.note;
             btn.classList.remove('edit-mode');
         }
@@ -472,7 +499,7 @@ export class UIController {
         window.addEventListener('blur', () => {
             activeNotes = {};
             document.querySelectorAll('.key.active').forEach(k => k.classList.remove('active'));
-            this.sequencer.heldNotes = []; // Clear arp notes
+            this.sequencer.arpNotes = []; // Clear arp notes
             this.synth.stopAllNotes();
         });
     }

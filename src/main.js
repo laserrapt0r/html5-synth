@@ -124,8 +124,8 @@ window.addEventListener('keyup', (e) => {
 // Dynamic Scaling for perfectly fitting the UI without overlaps
 const handleResize = () => {
     const container = document.getElementById('app');
-    const targetWidth = 1300;
-    const targetHeight = 900;
+    const targetWidth = 1600;
+    const targetHeight = 950;
     
     // Add small margin padding to screen dimensions
     const availableWidth = window.innerWidth - 20;
