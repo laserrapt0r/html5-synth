@@ -21,7 +21,7 @@ uiController = new UIController(synth, sequencer);
 // Set default pattern: Funky Town
 const defaultPattern = [0, 2, 4, 6, 10, 14, 16, 18, 20, 22];
 defaultPattern.forEach(i => {
-    document.getElementById(`step-btn-${i}`).click();
+    document.getElementById(`step-btn-t0-${i}`).click();
 });
 
 // Preset Handling

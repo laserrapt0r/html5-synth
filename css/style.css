@@ -444,7 +444,6 @@ input:checked + .slider.round:before {
     display: grid;
     grid-template-columns: repeat(32, minmax(0, 1fr));
     gap: 3px;
-    height: 100%;
     overflow-x: auto;
     padding-bottom: 10px; /* Space for the scrollbar */
 }
