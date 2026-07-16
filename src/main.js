@@ -100,23 +100,41 @@ const codeMap = {
     'KeyK': 72  // C5
 };
 
-// Display labels for piano keys (QWERTZ layout)
-const noteToKeyLabel = {
-    60: 'A', 61: 'W', 62: 'S', 63: 'E', 64: 'D',
-    65: 'F', 66: 'T', 67: 'G', 68: 'Z', 69: 'H',
-    70: 'U', 71: 'J', 72: 'K'
-};
-
-// Add keyboard shortcut labels to piano keys
-Object.entries(noteToKeyLabel).forEach(([note, label]) => {
+// Create empty shortcut labels on piano keys, to be filled by layout detection
+Object.values(codeMap).forEach(note => {
     const keyEl = document.querySelector(`.key[data-note="${note}"]`);
     if (keyEl) {
         const shortcutLabel = document.createElement('span');
         shortcutLabel.className = 'key-shortcut';
-        shortcutLabel.textContent = label;
+        shortcutLabel.dataset.note = note;
         keyEl.appendChild(shortcutLabel);
     }
 });
+
+// Universal keyboard label detection
+const updateKeyLabel = (note, char) => {
+    const label = document.querySelector(`.key-shortcut[data-note="${note}"]`);
+    if (label && !label.textContent) {
+        label.textContent = char.toUpperCase();
+    }
+};
+
+// Method 1: Keyboard Layout Map API (Chrome/Edge — instant, no keypress needed)
+if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+    navigator.keyboard.getLayoutMap().then(layoutMap => {
+        Object.entries(codeMap).forEach(([code, note]) => {
+            const char = layoutMap.get(code);
+            if (char) updateKeyLabel(note, char);
+        });
+    }).catch(() => {}); // Silently fail, Method 2 will handle it
+}
+
+// Method 2: Detect on first keypress (Firefox fallback — works on ANY layout)
+window.addEventListener('keydown', function labelDetector(e) {
+    if (codeMap[e.code] && e.key.length === 1) {
+        updateKeyLabel(codeMap[e.code], e.key);
+    }
+}, { passive: true });
 
 window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
