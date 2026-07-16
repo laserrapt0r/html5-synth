@@ -83,27 +83,45 @@ const initAudio = async () => {
 
 document.getElementById('power-btn').addEventListener('click', initAudio);
 
-// Keyboard synth playing for fun (Optional, just simple mono map)
-const keyMap = {
-    'a': 60, // C4
-    'w': 61,
-    's': 62,
-    'e': 63,
-    'd': 64,
-    'f': 65,
-    't': 66,
-    'g': 67,
-    'y': 68,
-    'h': 69,
-    'u': 70,
-    'j': 71,
-    'k': 72 // C5
+// Keyboard synth playing — uses e.code (physical key position) for layout independence
+const codeMap = {
+    'KeyA': 60, // C4
+    'KeyW': 61, // C#4
+    'KeyS': 62, // D4
+    'KeyE': 63, // D#4
+    'KeyD': 64, // E4
+    'KeyF': 65, // F4
+    'KeyT': 66, // F#4
+    'KeyG': 67, // G4
+    'KeyY': 68, // G#4 (physical position — Z on QWERTZ)
+    'KeyH': 69, // A4
+    'KeyU': 70, // A#4
+    'KeyJ': 71, // B4
+    'KeyK': 72  // C5
 };
 
+// Display labels for piano keys (QWERTZ layout)
+const noteToKeyLabel = {
+    60: 'A', 61: 'W', 62: 'S', 63: 'E', 64: 'D',
+    65: 'F', 66: 'T', 67: 'G', 68: 'Z', 69: 'H',
+    70: 'U', 71: 'J', 72: 'K'
+};
+
+// Add keyboard shortcut labels to piano keys
+Object.entries(noteToKeyLabel).forEach(([note, label]) => {
+    const keyEl = document.querySelector(`.key[data-note="${note}"]`);
+    if (keyEl) {
+        const shortcutLabel = document.createElement('span');
+        shortcutLabel.className = 'key-shortcut';
+        shortcutLabel.textContent = label;
+        keyEl.appendChild(shortcutLabel);
+    }
+});
+
 window.addEventListener('keydown', (e) => {
-    if (e.repeat) return; // Prevent key repeat triggering multiple notes
-    if (audioContext && keyMap[e.key.toLowerCase()]) {
-        const note = keyMap[e.key.toLowerCase()];
+    if (e.repeat) return;
+    if (audioContext && codeMap[e.code]) {
+        const note = codeMap[e.code];
         const keyEl = document.querySelector(`.key[data-note="${note}"]`);
         if (keyEl) {
             keyEl.dispatchEvent(new MouseEvent('mousedown'));
@@ -112,8 +130,8 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('keyup', (e) => {
-    if (audioContext && keyMap[e.key.toLowerCase()]) {
-        const note = keyMap[e.key.toLowerCase()];
+    if (audioContext && codeMap[e.code]) {
+        const note = codeMap[e.code];
         const keyEl = document.querySelector(`.key[data-note="${note}"]`);
         if (keyEl) {
             keyEl.dispatchEvent(new MouseEvent('mouseup'));
