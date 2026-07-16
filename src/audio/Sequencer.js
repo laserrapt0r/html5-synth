@@ -176,8 +176,9 @@ export class Sequencer {
             const stepDuration = this.timeDiv * (60.0 / this.bpm);
             // absStep is the next step to be scheduled; walk back to the audible one
             const ahead = (this.nextNoteTime - this.ctx.currentTime) / stepDuration;
-            pos = Math.round(this.absStep - ahead) % len;
-            if (pos < 0) pos += len;
+            // During the count-in the transport is still before step 0 —
+            // notes played there belong on the first step, not at the loop end
+            pos = Math.max(0, Math.round(this.absStep - ahead)) % len;
         } else {
             pos = this.recCursor % len;
             this.recCursor = (this.recCursor + 1) % len;
@@ -551,8 +552,9 @@ export class Sequencer {
         this.isPlaying = true;
         this.nextNoteTime = this.ctx.currentTime + 0.05; // start shortly after
 
-        // Count-in: with REC armed, one bar of clicks before the first step
-        if (this.recArmed && this.currentStep === 0) {
+        // Count-in: with REC armed AND the metronome on, one bar of clicks
+        // before the first step (silent waiting without a click would confuse)
+        if (this.recArmed && this.metronomeOn && this.currentStep === 0) {
             const beat = 60.0 / this.bpm;
             for (let b = 0; b < 4; b++) {
                 this._click(this.nextNoteTime + b * beat, b === 0);
@@ -572,7 +574,9 @@ export class Sequencer {
         this._updateTransportUI();
     }
 
-    // STOP resets to the top, cuts ringing notes and clears queued switches
+    // STOP resets to the top and cuts ringing notes. Queued bank switches are
+    // APPLIED (the user picked them and the UI already shows them as pending —
+    // silently dropping them would leave a blinking, out-of-sync selector).
     stop() {
         this.isPlaying = false;
         this.autoStartedByArp = false;
@@ -582,7 +586,13 @@ export class Sequencer {
         this.songIndex = 0;
         this.songLoopCount = 0;
         this._songFirst = true;
-        this.pendingTrackBanks = Array.from({length: this.numTracks}, () => null);
+        for (let t = 0; t < this.numTracks; t++) {
+            if (this.pendingTrackBanks[t] !== null) {
+                this.trackBanks[t] = this.pendingTrackBanks[t];
+                this.pendingTrackBanks[t] = null;
+                if (this.onBankApplied) this.onBankApplied(t, this.trackBanks[t]);
+            }
+        }
         this.synth.stopAllNotes();
         this._updateTransportUI();
         if (this.onStep) this.onStep(-1);

@@ -72,6 +72,22 @@ export class UIController {
         }
     }
 
+    // Forget the edit history (used after the initial default-pattern setup so
+    // Ctrl+Z can't "undo" the factory pattern away)
+    clearUndoHistory() {
+        this.undoStack = [];
+        this.redoStack = [];
+    }
+
+    // Update the info line of one step on every track that shows this bank
+    _updateStepInfoForBank(bankIdx, stepIndex, step) {
+        for (let t = 0; t < this.sequencer.numTracks; t++) {
+            if (this.sequencer.trackBanks[t] !== bankIdx) continue;
+            const btn = document.getElementById(`step-btn-t${t}-${stepIndex}`);
+            if (btn) this._updateStepInfo(btn, step);
+        }
+    }
+
     getParamBindings() {
         return [
             { name: 'polyphony', group: 'master', param: 'polyphony', type: 'radio' },
@@ -605,7 +621,7 @@ export class UIController {
                         idx = Math.max(0, Math.min(probs.length - 1, idx + dir));
                         step.prob = probs[idx];
                     }
-                    this._updateStepInfo(btn, step);
+                    this._updateStepInfoForBank(bankIdx, i, step); // incl. other tracks on this bank
                 }, { passive: false });
 
                 const pitchSelect = document.createElement('select');
@@ -726,7 +742,7 @@ export class UIController {
                 const chip = document.createElement('div');
                 chip.className = 'song-chip';
                 chip.textContent = `${scene.banks.map(bankName).join('')}×${scene.repeats}`;
-                chip.title = 'Scene: banks for track 1+2 · Click: repeats +1 · Right-click: remove';
+                chip.title = 'Scene: banks for all four tracks · Click: repeats +1 · Right-click: remove';
                 if (this.sequencer.songMode && idx === this.sequencer.songIndex) chip.classList.add('active');
                 chip.addEventListener('click', () => {
                     scene.repeats = scene.repeats % 8 + 1;

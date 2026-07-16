@@ -224,20 +224,11 @@ export class Synth {
             const uniDetune = parseFloat(pick('master.uniDetune', this.params.master.uniDetune)) || 0;
             const spread = parseFloat(pick('master.spread', this.params.master.spread)) || 0;
 
-            // Enforce the voice limit (unison siblings count) by stealing the oldest note
-            const effectiveMax = Math.max(2, Math.floor(this.maxVoices / unison));
-            const entries = Object.entries(this.activeVoices);
-            if (entries.length >= effectiveMax) {
-                let oldestNote = null;
-                let oldestVoice = null;
-                for (const [n, v] of entries) {
-                    if (!oldestVoice || v.startTime < oldestVoice.startTime) {
-                        oldestVoice = v;
-                        oldestNote = n;
-                    }
-                }
-                this._stopVoiceGroup(oldestVoice, time);
-                delete this.activeVoices[oldestNote];
+            // Enforce the voice limit against the REAL voice count (unison
+            // groups and pedal-sustained voices included) by stealing the
+            // oldest group until the new note fits.
+            while (this._totalActiveVoices() + unison > this.maxVoices) {
+                if (!this._stealOldest(time)) break;
             }
 
             // Alternate the stereo side per note so the spread fills the field
@@ -336,10 +327,47 @@ export class Synth {
         voice.unisonSiblings.forEach(s => s.stop(time));
     }
 
+    // Real number of running voices: active + pedal-sustained, incl. siblings
+    _totalActiveVoices() {
+        let n = 0;
+        Object.values(this.activeVoices).forEach(v => { n += 1 + v.unisonSiblings.length; });
+        this._sustained.forEach(v => { n += 1 + v.unisonSiblings.length; });
+        return n;
+    }
+
+    // Steal the oldest voice group (searching held notes and pedal-sustained
+    // voices alike). Returns false when there is nothing left to steal.
+    _stealOldest(time) {
+        let oldest = null;
+        let oldestKey = null;
+        let sustainedIdx = -1;
+        for (const [n, v] of Object.entries(this.activeVoices)) {
+            if (!oldest || v.startTime < oldest.startTime) {
+                oldest = v;
+                oldestKey = n;
+                sustainedIdx = -1;
+            }
+        }
+        this._sustained.forEach((v, i) => {
+            if (!oldest || v.startTime < oldest.startTime) {
+                oldest = v;
+                oldestKey = null;
+                sustainedIdx = i;
+            }
+        });
+        if (!oldest) return false;
+        this._stopVoiceGroup(oldest, time);
+        if (sustainedIdx >= 0) this._sustained.splice(sustainedIdx, 1);
+        else delete this.activeVoices[oldestKey];
+        return true;
+    }
+
     stopNote(note, time) {
-        if (this.params.master.polyphony === 'poly') {
-            const voice = this.activeVoices[note];
-            if (!voice) return;
+        // A poly voice may exist for this note even when the panel is mono
+        // (mode switched while the key was held) — always release it first,
+        // otherwise it hangs forever.
+        const voice = this.activeVoices[note];
+        if (voice) {
             if (this.sustainOn) {
                 // Pedal holds the voice; released from activeVoices so a
                 // re-pressed key starts a fresh voice on top
@@ -349,7 +377,10 @@ export class Synth {
             }
             this._stopVoiceGroup(voice, time);
             delete this.activeVoices[note];
-        } else {
+            return;
+        }
+
+        if (this.params.master.polyphony !== 'poly') {
             this.heldNotes = this.heldNotes.filter(n => n !== note);
             if (this.monoVoice && this.currentMonoNote === note) {
                 if (this.heldNotes.length > 0) {
@@ -381,9 +412,10 @@ export class Synth {
     // 303-style slide: glide the sounding note (scheduled by tie steps with a
     // different pitch) without retriggering any envelope.
     slideNote(fromNote, toNote, time) {
-        const voice = this.params.master.polyphony === 'poly'
-            ? this.activeVoices[fromNote]
-            : this.monoVoice;
+        // Track sounds force poly regardless of the panel mode — look in the
+        // poly pool first and use the mono voice only as a fallback.
+        const voice = this.activeVoices[fromNote] ||
+            (this.params.master.polyphony !== 'poly' ? this.monoVoice : null);
         if (!voice || !voice.isActive) return;
 
         const freq = this.noteToFreq(toNote);

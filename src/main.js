@@ -157,6 +157,8 @@ if (savedProject) {
         document.getElementById(`step-btn-t0-${i}`).click();
     });
 }
+// The initial setup must not be undoable step by step
+uiController.clearUndoHistory();
 persistence.startAutosave();
 
 // Preset Handling (factory presets + user patches)
@@ -458,7 +460,7 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-// Dynamic Scaling: the app is a fixed 1600x920 canvas that gets scaled
+// Dynamic Scaling: the app is a fixed 1600x1070 canvas that gets scaled
 // uniformly to fit the window — no internal reflow, so nothing can overlap.
 const handleResize = () => {
     const container = document.getElementById('app');

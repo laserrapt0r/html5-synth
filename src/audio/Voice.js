@@ -278,11 +278,11 @@ export class Voice {
                         this.vco1DcOffset.disconnect();
                         this.vco1DcOffset.connect(this.vco1WaveShaper);
                         
-                        // DC Offset controls the pulse width threshold. 
+                        // DC Offset controls the pulse width threshold.
                         // PW = 0.5 -> DC = 0
                         // PW = 0.05 -> DC = 0.9
                         // PW = 0.95 -> DC = -0.9
-                        this.vco1DcOffset.offset.value = -(pw - 0.5) * 2;
+                        this._smooth(this.vco1DcOffset.offset, -(pw - 0.5) * 2, 0.01);
                         
                         this.vco1WaveShaper.disconnect();
                         this.vco1WaveShaper.connect(this.vco1Gain);

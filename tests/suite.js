@@ -33,6 +33,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         document.getElementById('power-btn').click();
         await sleep(300);
 
+        // The initial default-pattern setup must not be undoable
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+        assert(document.getElementById('step-btn-t0-22').classList.contains('active'),
+            'boot setup is not part of the undo history');
+
         // Preset dropdown: grouped, complete, mapped
         const presetSel = document.getElementById('preset-select');
         assert(presetSel.querySelectorAll('optgroup').length >= 5, 'preset select is grouped by category');
@@ -94,6 +99,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         fireWheel({ deltaY: -100, ctrlKey: true });
         assert(wheelBtn.querySelector('.step-info').textContent.includes('1:2'), 'ctrl+wheel sets trig condition');
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+
+        // Shared bank: the info line updates on every track showing that bank
+        const bankSel1 = document.getElementById('track-bank-1');
+        bankSel1.value = '0'; // same bank as track 1
+        bankSel1.dispatchEvent(new Event('change', { bubbles: true }));
+        const sharedBtn = document.getElementById('step-btn-t0-6');
+        sharedBtn.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }));
+        assert(document.querySelector('#step-btn-t1-6 .step-info').textContent === '75%',
+            'wheel edits update the info line on all tracks sharing the bank');
+        sharedBtn.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true })); // back to 100%
+        bankSel1.value = '1';
+        bankSel1.dispatchEvent(new Event('change', { bubbles: true }));
 
         // Slider wheel acceleration
         const tune = document.getElementById('vco1-tune');
@@ -274,6 +291,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         const seq = new Sequencer(synth);
         const played = [];
         const realPlay = synth.playNote.bind(synth);
+        const realSlide = synth.slideNote.bind(synth);
         synth.playNote = (...a) => played.push({ note: a[0], time: a[1], dur: a[2], locks: a[3], vel: a[4], abs: seq.absStep });
         const slid = [];
         synth.slideNote = (...a) => slid.push(a);
@@ -362,6 +380,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         assert(seq.setTrackBank(0, 2) === 'queued', 'bank switch queues while playing');
         seq.scheduleNote(0, ctx.currentTime);
         assert(seq.trackBanks[0] === 2, 'queued bank applies at the loop start');
+
+        // STOP applies (not drops) a still-pending switch and notifies the UI
+        seq.setTrackBank(1, 5);
+        const applied = [];
+        seq.onBankApplied = (t, b) => applied.push([t, b]);
+        seq.stop();
+        assert(seq.trackBanks[1] === 5 && applied.some(([t, b]) => t === 1 && b === 5),
+            'STOP applies pending bank switches and fires the UI callback');
+        seq.onBankApplied = null;
         seq.isPlaying = false;
         seq.songChain = [{ banks: [2, 3, 4, 5], repeats: 1 }, { banks: [0, 1, 2, 3], repeats: 1 }];
         seq.setSongMode(true);
@@ -371,15 +398,27 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         assert(scene1 === '2,3,4,5' && seq.trackBanks.join(',') === '0,1,2,3', 'song scenes apply and advance');
         seq.setSongMode(false);
 
-        // Recording target + count-in
+        // Recording target + count-in (count-in requires the metronome)
         const seqR = new Sequencer(synth);
         seqR.setRecording(true);
         seqR.recTarget = 2;
         seqR.recordNote(66);
         assert(seqR.patterns[seqR.trackBanks[2]][0].note === 66, 'recording writes into the target track');
-        const t0 = ctx.currentTime;
+        let t0 = ctx.currentTime;
         seqR.play();
-        assert(seqR.nextNoteTime > t0 + 1.5, 'REC-armed play prepends a one-bar count-in');
+        assert(seqR.nextNoteTime < t0 + 0.5, 'REC without metronome starts immediately (no silent count-in)');
+        seqR.pause();
+        seqR.currentStep = 0;
+        seqR.metronomeOn = true;
+        t0 = ctx.currentTime;
+        seqR.play();
+        assert(seqR.nextNoteTime > t0 + 1.5, 'REC + metronome prepends a one-bar count-in');
+
+        // Notes played during the count-in land on step 1, not at the loop end
+        seqR.recordNote(59);
+        assert(seqR.patterns[seqR.trackBanks[2]][0].note === 59 && seqR.patterns[seqR.trackBanks[2]][0].active,
+            'recording during the count-in lands on the first step');
+        seqR.metronomeOn = false;
         seqR.stop();
 
         // Legacy project migration
@@ -394,6 +433,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
             'legacy 2-track project merges cleanly');
 
         synth.playNote = realPlay;
+        synth.slideNote = realSlide;
 
         // Track-sound isolation from the global preset
         const flat = flattenPatchToLocks(Presets['snare-drum'].params);
@@ -413,6 +453,42 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         synth.playNote(81, ctx.currentTime, 0, uniLocks);
         assert(synth.activeVoices[81].unisonSiblings.length === 2, 'per-note unison override from track sound');
         synth.stopNote(81, ctx.currentTime);
+
+        // Slide reaches forced-poly voices even while the panel is mono
+        synth.params.master.polyphony = 'mono';
+        synth.playNote(90, ctx.currentTime, 0, { 'master.polyphony': 'poly' });
+        synth.slideNote(90, 93, ctx.currentTime);
+        assert(Math.abs(synth.activeVoices[90].noteFrequency - synth.noteToFreq(93)) < 0.01,
+            'slide finds the poly voice under a mono panel');
+        synth.stopNote(90, ctx.currentTime);
+        synth.params.master.polyphony = 'poly';
+
+        // Switching to mono while a poly key is held must not leave it hanging
+        synth.playNote(91, ctx.currentTime);
+        const heldPoly = synth.activeVoices[91];
+        synth.params.master.polyphony = 'mono';
+        synth.stopNote(91, ctx.currentTime);
+        assert(heldPoly.isStopping && !synth.activeVoices[91],
+            'note released after a poly->mono switch mid-hold');
+        synth.params.master.polyphony = 'poly';
+
+        // Pedal-sustained voices count against the voice budget
+        synth.setSustain(true);
+        for (let n = 30; n < 55; n++) {
+            synth.playNote(n, ctx.currentTime);
+            synth.stopNote(n, ctx.currentTime);
+        }
+        assert(synth._totalActiveVoices() <= synth.maxVoices,
+            'voice budget includes pedal-sustained voices');
+        synth.setSustain(false);
+
+        // Unison groups count as real voices against the budget
+        synth.updateParams('master', 'unison', '3');
+        for (let n = 84, k = 0; k < 8; k++, n++) synth.playNote(n, ctx.currentTime);
+        assert(synth._totalActiveVoices() <= synth.maxVoices,
+            'voice budget respects unison group sizes');
+        synth.stopAllNotes();
+        synth.updateParams('master', 'unison', '1');
 
         // ---------------- Persistence ----------------
         const pers = new Persistence(synth, seq);

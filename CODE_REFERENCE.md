@@ -189,7 +189,7 @@ within the next 100 ms (`scheduleAheadTime`) at sample-accurate AudioContext tim
 
 | Member | Description |
 |---|---|
-| `play()` / `pause()` / `stop()` | Play resumes from the current position, Pause keeps it, Stop resets to step 1, cuts ringing notes and clears queued switches; refuses to start while suspended |
+| `play()` / `pause()` / `stop()` | Play resumes from the current position, Pause keeps it, Stop resets to step 1, cuts ringing notes and applies queued bank switches; refuses to start while suspended |
 | `scheduleNote(step, time)` | Applies queued bank switches/song scenes at step 0, swing on odd steps, resolves ties into longer gates and slides, triggers both tracks (each looping within its bank's `patternLengths` — polymetric) or the arpeggiator |
 | `setStep / setStepTie / setStepAccent / setStepLock` | Pattern editing API (all take an optional bank index) |
 | `addArpNote(note, velocity=1)` / `removeArpNote` / `clearArpNotes` | Arp note pool; auto-starts/stops the transport when the arp is enabled; velocities are kept per held key |
@@ -197,7 +197,7 @@ within the next 100 ms (`scheduleAheadTime`) at sample-accurate AudioContext tim
 | `setTrackBank(track, bank)` | Quantized while playing (returns `'queued'`), immediate otherwise |
 | `setPatternLength(bank, len)` | Loop length 1–32 per bank |
 | `setSongMode / songChain` | Song scenes `{banks:[a,b], repeats}` applied at loop boundaries |
-| `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized while playing — into `recTarget`'s bank; `play()` with REC armed prepends a one-bar count-in |
+| `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized while playing — into `recTarget`'s bank; `play()` with REC armed and the metronome on prepends a one-bar count-in |
 | `copyPattern/pastePattern/clearPattern/shiftPattern` | Pattern tools (UIController keeps the clipboard and the undo/redo snapshot stacks) |
 | `metronomeOn` / `_click(time, accent)` | Metronome blips straight into the master bus |
 | `setTrackSound(track, id, locks)` | Assigns a per-track sound (patch id + flattened voice-param locks; null = LIVE) |
