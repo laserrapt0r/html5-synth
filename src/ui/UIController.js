@@ -334,6 +334,17 @@ export class UIController {
             });
         });
 
+        for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+            const muteBtn = document.getElementById(`pattern-mute-${trackIndex}`);
+            if (muteBtn) {
+                muteBtn.addEventListener('click', () => {
+                    const isMuted = muteBtn.classList.contains('active'); // currently playing
+                    muteBtn.classList.toggle('active');
+                    this.sequencer.setTrackMuted(trackIndex, isMuted); // if active, we are muting
+                });
+            }
+        }
+
         this.sequencer.onStep = (step) => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('current'));
             

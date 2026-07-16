@@ -483,9 +483,9 @@
                     </div>
                     
                     <div class="pattern-select-container" style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                        <!-- Track 1 Controls -->
+                        <!-- Pattern 1 Controls -->
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">TRACK 1 BANK:</div>
+                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">PAT 1 BANK:</div>
                             <div class="pattern-select radio-group" style="display: flex; gap: 4px;">
                                 <input type="radio" name="track1-bank" id="t1-pat-a" value="0" checked>
                                 <label for="t1-pat-a" class="wave-btn" style="min-width: 25px; height: 20px; line-height: 20px;">A</label>
@@ -498,9 +498,9 @@
                             </div>
                         </div>
                         
-                        <!-- Track 2 Controls -->
+                        <!-- Pattern 2 Controls -->
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">TRACK 2 BANK:</div>
+                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">PAT 2 BANK:</div>
                             <div class="pattern-select radio-group" style="display: flex; gap: 4px;">
                                 <input type="radio" name="track2-bank" id="t2-pat-a" value="0">
                                 <label for="t2-pat-a" class="wave-btn" style="min-width: 25px; height: 20px; line-height: 20px;">A</label>
@@ -518,14 +518,18 @@
                 </div>
             </div>
             
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <div class="seq-track-container" style="display: flex; gap: 10px; align-items: center;">
-                    <div style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.7rem; color: var(--neon-cyan); text-align: center;">TRACK 1</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div class="seq-track-container" style="display: flex; gap: 6px; align-items: center;">
+                    <div class="pattern-label-col">
+                        <button class="pattern-mute-btn active" id="pattern-mute-0" title="Mute/Unmute Pattern 1">P1</button>
+                    </div>
                     <div class="seq-grid" id="sequencer-steps-0" style="flex: 1;"></div>
                 </div>
                 
-                <div class="seq-track-container" style="display: flex; gap: 10px; align-items: center;">
-                    <div style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.7rem; color: var(--neon-cyan); text-align: center;">TRACK 2</div>
+                <div class="seq-track-container" style="display: flex; gap: 6px; align-items: center;">
+                    <div class="pattern-label-col">
+                        <button class="pattern-mute-btn active" id="pattern-mute-1" title="Mute/Unmute Pattern 2">P2</button>
+                    </div>
                     <div class="seq-grid" id="sequencer-steps-1" style="flex: 1;"></div>
                 </div>
             </div>

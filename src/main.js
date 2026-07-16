@@ -100,36 +100,42 @@ const codeMap = {
     'KeyK': 72  // C5
 };
 
-// Create empty shortcut labels on piano keys, to be filled by layout detection
-Object.values(codeMap).forEach(note => {
+// Default labels based on physical key codes (QWERTY names as universal fallback)
+const defaultLabels = {
+    'KeyA': 'A', 'KeyW': 'W', 'KeyS': 'S', 'KeyE': 'E', 'KeyD': 'D',
+    'KeyF': 'F', 'KeyT': 'T', 'KeyG': 'G', 'KeyY': 'Y', 'KeyH': 'H',
+    'KeyU': 'U', 'KeyJ': 'J', 'KeyK': 'K'
+};
+
+// Create shortcut labels on piano keys with default labels
+Object.entries(codeMap).forEach(([code, note]) => {
     const keyEl = document.querySelector(`.key[data-note="${note}"]`);
     if (keyEl) {
         const shortcutLabel = document.createElement('span');
         shortcutLabel.className = 'key-shortcut';
         shortcutLabel.dataset.note = note;
+        shortcutLabel.textContent = defaultLabels[code] || '';
         keyEl.appendChild(shortcutLabel);
     }
 });
 
-// Universal keyboard label detection
+// Override with actual layout if available
 const updateKeyLabel = (note, char) => {
     const label = document.querySelector(`.key-shortcut[data-note="${note}"]`);
-    if (label && !label.textContent) {
-        label.textContent = char.toUpperCase();
-    }
+    if (label) label.textContent = char.toUpperCase();
 };
 
-// Method 1: Keyboard Layout Map API (Chrome/Edge — instant, no keypress needed)
+// Method 1: Keyboard Layout Map API (Chrome/Edge — instant)
 if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
     navigator.keyboard.getLayoutMap().then(layoutMap => {
         Object.entries(codeMap).forEach(([code, note]) => {
             const char = layoutMap.get(code);
             if (char) updateKeyLabel(note, char);
         });
-    }).catch(() => {}); // Silently fail, Method 2 will handle it
+    }).catch(() => {});
 }
 
-// Method 2: Detect on first keypress (Firefox fallback — works on ANY layout)
+// Method 2: Detect on keypress (Firefox — corrects labels for non-QWERTY layouts)
 window.addEventListener('keydown', function labelDetector(e) {
     if (codeMap[e.code] && e.key.length === 1) {
         updateKeyLabel(codeMap[e.code], e.key);
