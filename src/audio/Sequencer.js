@@ -167,11 +167,10 @@ export class Sequencer {
         let pos;
         if (this.isPlaying) {
             const stepDuration = this.timeDiv * (60.0 / this.bpm);
-            // currentStep is the next step to be scheduled; walk back to the audible one
+            // absStep is the next step to be scheduled; walk back to the audible one
             const ahead = (this.nextNoteTime - this.ctx.currentTime) / stepDuration;
-            pos = Math.round(this.currentStep - ahead) % this.numSteps;
-            if (pos < 0) pos += this.numSteps;
-            pos = pos % len;
+            pos = Math.round(this.absStep - ahead) % len;
+            if (pos < 0) pos += len;
         } else {
             pos = this.recCursor % len;
             this.recCursor = (this.recCursor + 1) % len;
@@ -453,9 +452,12 @@ export class Sequencer {
                 playedKeys.add(dedupeKey);
                 if (bankIdx < 0 || bankIdx >= this.numPatterns) continue;
 
-                // Each bank loops within its own length (polymetric tracks)
+                // Each bank loops within its own length (polymetric tracks).
+                // The position derives from the absolute step counter — the
+                // global 32-step wrap must NOT restart shorter patterns, or a
+                // 24-step pattern would play 24 + 8 steps and then reset.
                 const len = this.patternLengths[bankIdx];
-                const pos = stepNumber % len;
+                const pos = this.absStep % len;
                 const stepData = this.patterns[bankIdx][pos];
 
                 if (stepData.tie) {
@@ -506,11 +508,13 @@ export class Sequencer {
             }
         }
 
-        // Notify UI 
+        // Notify UI — pass the absolute step so per-track positions
+        // (absStep % length) stay in sync with the audio
         if (this.onStep) {
+            const absAtSchedule = this.absStep;
             const timeUntilNote = (scheduledTime - this.ctx.currentTime) * 1000;
             setTimeout(() => {
-                this.onStep(stepNumber);
+                this.onStep(absAtSchedule);
             }, Math.max(0, timeUntilNote));
         }
     }
