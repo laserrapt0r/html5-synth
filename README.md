@@ -23,7 +23,7 @@ features typically found on hardware synths.
 - **Pulse Width Modulation (PWM)** and a **Pitch Envelope** (±48 semitones, for kicks and zaps).
 - **Dual LFOs:** LFO1 modulates Pitch, Filter Cutoff and PWM; LFO2 is a tremolo. Both include a
   Random (Sample & Hold) mode for generative textures.
-- **32-Step Sequencer** with two pattern tracks, four banks (A–D) with **individual loop lengths**
+- **32-Step Sequencer** with two pattern tracks, eight banks (A–H) with **individual loop lengths**
   (polymetric patterns!), per-track mute, **ties & 303-style slides** (a tie step with a different
   pitch glides there), **accents**, per-step **Parameter Locks**, quantized bank switching and
   **live/step recording** from any keyboard.
@@ -58,7 +58,7 @@ features typically found on hardware synths.
 | **Ctrl+Click** on a step | Toggle **accent** (velocity boost, orange LED) |
 | **Right-click** on a step column | Toggle **tie** — extends the previous note; give the tie step a *different pitch* and it **slides** there (303 style) |
 | **Shift+Click** on a step | Enter **P-Lock edit mode** — every control you now move is locked to this step only |
-| Bank radio buttons (A–D) | Choose the bank per track — while playing, the switch is **quantized** to the loop start (blinking = pending) |
+| Bank radio buttons (A–H) | Choose the bank per track — while playing, the switch is **quantized** to the loop start (blinking = pending) |
 | LEN select | Loop length (1–32) of the track's current bank — different lengths run polymetrically |
 | P1/P2 buttons | Mute/unmute a pattern track |
 | **PLAY / STOP** | Play toggles play/pause (keeps the position); Stop resets to step 1 and cuts ringing notes |

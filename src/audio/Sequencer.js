@@ -11,7 +11,7 @@ export class Sequencer {
         this.bpm = 120;
         this.currentStep = 0;
         this.numSteps = 32;
-        this.numPatterns = 4;
+        this.numPatterns = 8;
         this.currentEditPattern = 0;
         
         this.arpNotes = []; // Stores MIDI note numbers held down
@@ -30,7 +30,7 @@ export class Sequencer {
         
         this.trackBanks = [0, 1]; // Pattern 1 plays Bank A(0), Pattern 2 plays Bank B(1)
         this.trackMuted = [false, false]; // Mute state per pattern
-        this.patternLengths = [32, 32, 32, 32]; // per-bank loop length (1..32)
+        this.patternLengths = Array.from({length: this.numPatterns}, () => this.numSteps); // per-bank loop length (1..32)
         this.pendingTrackBanks = [null, null]; // bank switches queued to the loop start
 
         // Song mode: a chain of scenes [{banks:[a,b], repeats:n}]
@@ -490,7 +490,12 @@ export class Sequencer {
             });
         }
         if (Array.isArray(state.patternLengths)) {
-            this.patternLengths = state.patternLengths.map(l => Math.max(1, Math.min(this.numSteps, parseInt(l) || this.numSteps)));
+            // Merge per index — older projects may have fewer banks than we do now
+            state.patternLengths.forEach((l, i) => {
+                if (i < this.numPatterns) {
+                    this.patternLengths[i] = Math.max(1, Math.min(this.numSteps, parseInt(l) || this.numSteps));
+                }
+            });
         }
         if (Array.isArray(state.trackBanks)) this.trackBanks = [...state.trackBanks];
         if (Array.isArray(state.trackMuted)) this.trackMuted = [...state.trackMuted];

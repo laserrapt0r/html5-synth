@@ -114,7 +114,7 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
   Applied per note via `Voice.getParam`, which prefers a lock over `Synth.params`.
   Only voice-level groups are lockable (`vco1-3`, `noise`, `filter`, `fEnv`, `aEnv`, `pEnv`).
 
-Patterns: `sequencer.patterns[bank][step]` — 4 banks × 32 steps. Two *tracks* each play one bank
+Patterns: `sequencer.patterns[bank][step]` — 8 banks (A–H) × 32 steps. Two *tracks* each play one bank
 (`trackBanks`, default A and B) and can be muted (`trackMuted`). If both tracks select the same
 bank it is only triggered once.
 

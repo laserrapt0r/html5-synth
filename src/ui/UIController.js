@@ -473,7 +473,7 @@ export class UIController {
         const clearBtn = document.getElementById('song-clear');
         if (!toggle || !chainEl) return;
 
-        const bankName = (i) => ['A', 'B', 'C', 'D'][i] || '?';
+        const bankName = (i) => (i >= 0 && i < this.sequencer.numPatterns) ? String.fromCharCode(65 + i) : '?';
 
         const render = () => {
             chainEl.innerHTML = '';
