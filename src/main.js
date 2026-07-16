@@ -256,20 +256,21 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-// Dynamic Scaling for perfectly fitting the UI without overlaps
+// Dynamic Scaling: the app is a fixed 1600x920 canvas that gets scaled
+// uniformly to fit the window — no internal reflow, so nothing can overlap.
 const handleResize = () => {
     const container = document.getElementById('app');
-    const targetWidth = 1600;
-    const targetHeight = 950;
-    
-    // Add small margin padding to screen dimensions
+    const targetWidth = 1604; // container incl. border
+    const targetHeight = 924;
+
+    // Small margin so the glow/shadow isn't clipped at the edges
     const availableWidth = window.innerWidth - 20;
     const availableHeight = window.innerHeight - 20;
-    
+
     const scaleX = availableWidth / targetWidth;
     const scaleY = availableHeight / targetHeight;
-    const scale = Math.min(scaleX, scaleY, 1.2); // allow slight upscale up to 1.2x, but mainly downscale
-    
+    const scale = Math.min(scaleX, scaleY, 1.15); // allow slight upscale, but mainly downscale
+
     container.style.transform = `scale(${scale})`;
 };
 

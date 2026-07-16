@@ -39,8 +39,10 @@ body {
 }
 
 .synth-container {
-    width: 100%;
-    max-width: 1600px;
+    /* Fixed design canvas — responsiveness comes exclusively from the uniform
+       transform scale in main.js. A fluid width would reflow the inner layout
+       and make fixed-size controls overlap their shrinking panels. */
+    width: 1600px;
     height: 920px;
     display: flex;
     flex-direction: column;
