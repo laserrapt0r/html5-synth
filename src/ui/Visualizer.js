@@ -3,21 +3,26 @@ export class Visualizer {
         this.synth = synth;
         this.canvas = document.getElementById('oscilloscope');
         this.ctx = this.canvas.getContext('2d');
-        
-        // Handle High DPI displays
-        const dpr = window.devicePixelRatio || 1;
-        const rect = this.canvas.getBoundingClientRect();
-        this.canvas.width = rect.width * dpr;
-        this.canvas.height = rect.height * dpr;
-        this.ctx.scale(dpr, dpr);
-        
-        this.width = rect.width;
-        this.height = rect.height;
+
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
 
         this.bufferLength = this.synth.analyser.frequencyBinCount;
         this.dataArray = new Uint8Array(this.bufferLength);
 
         this.isDrawing = false;
+    }
+
+    resize() {
+        // Handle High DPI displays (canvas is CSS-sized to 100% of its container)
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        this.width = rect.width;
+        this.height = rect.height;
     }
 
     start() {

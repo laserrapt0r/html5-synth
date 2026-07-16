@@ -80,6 +80,25 @@ export class Synth {
         this.lfo2RndSource.connect(this.lfo2AmpGain);
         this.lfo2AmpGain.connect(this.masterGain.gain);
         this.lfo2.start();
+
+        // Apply initial params to LFO1 (type, rate) and all mod depths.
+        // Without this, lfo1 runs at the oscillator default (440 Hz sine) and
+        // the mod gains sit at their default of 1 (full depth) instead of 0.
+        this.updateLFO1();
+        this.updateLFO2();
+    }
+
+    // Connect the global LFO mod gains into a voice and remember the
+    // connections so Voice.disconnect() can sever them again.
+    _connectLFOs(voice) {
+        this.lfo1PitchGain.connect(voice.pitchTarget);
+        this.lfo1CutoffGain.connect(voice.filterTarget);
+        this.lfo1PwmGain.connect(voice.vco1DcOffset.offset);
+        voice.externalConnections.push(
+            [this.lfo1PitchGain, voice.pitchTarget],
+            [this.lfo1CutoffGain, voice.filterTarget],
+            [this.lfo1PwmGain, voice.vco1DcOffset.offset]
+        );
     }
 
     noteToFreq(note) {
@@ -89,17 +108,30 @@ export class Synth {
     }
 
     playNote(note, time, duration = 0, pLocks = {}) {
+        if (this.ctx.state !== 'running') return; // don't queue notes while suspended (pre-init)
         const freq = this.noteToFreq(note);
-        
+
         if (this.params.master.polyphony === 'poly') {
-            // Polyphonic Mode
+            // Polyphonic Mode — enforce the voice limit by stealing the oldest voice
+            const entries = Object.entries(this.activeVoices);
+            if (entries.length >= this.maxVoices) {
+                let oldestNote = null;
+                let oldestVoice = null;
+                for (const [n, v] of entries) {
+                    if (!oldestVoice || v.startTime < oldestVoice.startTime) {
+                        oldestVoice = v;
+                        oldestNote = n;
+                    }
+                }
+                oldestVoice.stop(time);
+                delete this.activeVoices[oldestNote];
+            }
+
             const voice = new Voice(this.ctx, this.params);
-            
-            // Connect LFOs
-            this.lfo1PitchGain.connect(voice.pitchTarget);
-            this.lfo1CutoffGain.connect(voice.filterTarget);
-            this.lfo1PwmGain.connect(voice.vco1DcOffset.offset);
-            
+            voice.startTime = time;
+
+            this._connectLFOs(voice);
+
             voice.output.connect(this.effects.input);
             voice.start(freq, time, pLocks);
             
@@ -122,25 +154,28 @@ export class Synth {
             this.currentMonoNote = note;
             if (!this.monoVoice || !this.monoVoice.isActive || this.monoVoice.isStopping) {
                 this.monoVoice = new Voice(this.ctx, this.params);
-                this.lfo1PitchGain.connect(this.monoVoice.pitchTarget);
-                this.lfo1CutoffGain.connect(this.monoVoice.filterTarget);
-                this.lfo1PwmGain.connect(this.monoVoice.vco1DcOffset.offset);
+                this.monoVoice.startTime = time;
+                this._connectLFOs(this.monoVoice);
                 this.monoVoice.output.connect(this.effects.input);
                 this.monoVoice.start(freq, time, pLocks);
             } else {
                 // Glide / Legato
                 const glideTime = parseFloat(this.params.master.glide);
-                
+
                 // Retrigger envelopes if Mono, don't retrigger if Legato
                 if (this.params.master.polyphony === 'mono') {
                     this.monoVoice.triggerAmpEnvelope(time);
                     this.monoVoice.triggerFilterEnvelope(time);
                 }
 
-                // Apply glide to Oscillators
+                // Take over the new step's parameter locks (frequency is glided below)
+                this.monoVoice.pLocks = pLocks || {};
                 this.monoVoice.noteFrequency = freq;
+                this.monoVoice.updateParams(true);
+
+                // Apply glide to Oscillators
                 this.monoVoice.oscs.forEach((osc, i) => {
-                    const octaveMult = Math.pow(2, parseInt(this.params[`vco${i+1}`].oct));
+                    const octaveMult = Math.pow(2, parseInt(this.monoVoice.getParam(`vco${i+1}`, 'oct')));
                     osc.frequency.cancelScheduledValues(time);
                     if (glideTime > 0) {
                         osc.frequency.setValueAtTime(osc.frequency.value, time);
@@ -190,18 +225,20 @@ export class Synth {
             this.lfo1.disconnect(); // Disable normal LFO
             if (!this.lfo1RndInterval) {
                 const updateSAndH = () => {
-                    this.lfo1RndSource.offset.value = (Math.random() * 2) - 1;
-                    if (this.params.lfo1.wave === 'random') {
-                        // Rate to ms
-                        const ms = 1000 / Math.max(0.1, this.params.lfo1.rate);
-                        this.lfo1RndInterval = setTimeout(updateSAndH, ms);
-                    } else {
+                    if (this.params.lfo1.wave !== 'random') {
                         this.lfo1RndInterval = null;
+                        return;
                     }
+                    this.lfo1RndSource.offset.value = (Math.random() * 2) - 1;
+                    // Rate to ms
+                    const ms = 1000 / Math.max(0.1, this.params.lfo1.rate);
+                    this.lfo1RndInterval = setTimeout(updateSAndH, ms);
                 };
                 updateSAndH();
             }
         } else {
+            clearTimeout(this.lfo1RndInterval);
+            this.lfo1RndInterval = null;
             this.lfo1RndSource.offset.value = 0; // Reset DC offset
             this.lfo1.type = wave;
             this.lfo1.frequency.value = this.params.lfo1.rate;
@@ -219,17 +256,19 @@ export class Synth {
             this.lfo2.disconnect();
             if (!this.lfo2RndInterval) {
                 const updateSAndH = () => {
-                    this.lfo2RndSource.offset.value = (Math.random() * 2) - 1;
-                    if (this.params.lfo2.wave === 'random') {
-                        const ms = 1000 / Math.max(0.1, this.params.lfo2.rate);
-                        this.lfo2RndInterval = setTimeout(updateSAndH, ms);
-                    } else {
+                    if (this.params.lfo2.wave !== 'random') {
                         this.lfo2RndInterval = null;
+                        return;
                     }
+                    this.lfo2RndSource.offset.value = (Math.random() * 2) - 1;
+                    const ms = 1000 / Math.max(0.1, this.params.lfo2.rate);
+                    this.lfo2RndInterval = setTimeout(updateSAndH, ms);
                 };
                 updateSAndH();
             }
         } else {
+            clearTimeout(this.lfo2RndInterval);
+            this.lfo2RndInterval = null;
             this.lfo2RndSource.offset.value = 0; // Reset DC offset
             this.lfo2.type = wave;
             this.lfo2.frequency.value = this.params.lfo2.rate;
@@ -248,24 +287,19 @@ export class Synth {
             if (key === 'arpLatch') this.params.master.arpLatch = value;
             if (key === 'arpOctaves') this.params.master.arpOctaves = value;
         } else if (module === 'effects') {
+            // Apply from the params object, NOT from the DOM — during preset
+            // loading the DOM still holds the old values at this point.
             this.params.effects[key] = value;
-            
-            if (key === 'dist-on') this.effects.setDistortion(value, document.getElementById('dist-drive').value);
-            if (key === 'dist-drive') this.effects.setDistortion(document.getElementById('dist-on').checked, value);
-            
+            const fx = this.params.effects;
+
+            if (key === 'dist-on' || key === 'dist-drive') {
+                this.effects.setDistortion(fx['dist-on'], fx['dist-drive']);
+            }
             if (key === 'delay-on' || key === 'delay-time' || key === 'delay-fb' || key === 'delay-mix') {
-                this.effects.setDelay(
-                    document.getElementById('delay-on').checked,
-                    document.getElementById('delay-time').value,
-                    document.getElementById('delay-fb').value,
-                    document.getElementById('delay-mix').value
-                );
+                this.effects.setDelay(fx['delay-on'], fx['delay-time'], fx['delay-fb'], fx['delay-mix']);
             }
             if (key === 'reverb-on' || key === 'reverb-mix') {
-                this.effects.setReverb(
-                    document.getElementById('reverb-on').checked,
-                    document.getElementById('reverb-mix').value
-                );
+                this.effects.setReverb(fx['reverb-on'], fx['reverb-mix']);
             }
         } else if (module === 'lfo1') {
             this.params.lfo1[key] = value;
@@ -279,16 +313,9 @@ export class Synth {
                 this.params[module][key] = value;
             }
 
-            if (module === 'vco1' && (key === 'wave' || key === 'pw' || key === 'pwm')) {
-                // To update PW of active voices:
-                Object.values(this.activeVoices).forEach(voice => {
-                    if (voice.vco1Delay) {
-                        voice.vco1Delay.delayTime.value = this.params.vco1.pw * 0.002;
-                    }
-                });
-                if (this.monoVoice && this.monoVoice.vco1Delay) {
-                    this.monoVoice.vco1Delay.delayTime.value = this.params.vco1.pw * 0.002;
-                }
+            if (module === 'vco1' && key === 'pwm') {
+                // Keep the LFO1 -> PWM mod depth in sync with the PWM slider
+                this.lfo1PwmGain.gain.value = parseFloat(value) || 0;
             }
 
             // Real-time update active voices

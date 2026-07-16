@@ -134,7 +134,7 @@ export class OscDraw {
                 sumImag += this.waveData[n] * Math.sin(angle);
             }
             real[k] = (2 * sumReal) / N;
-            imag[k] = -(2 * sumImag) / N; // Web Audio PeriodicWave expects negative imaginary for standard math
+            imag[k] = (2 * sumImag) / N; // PeriodicWave synthesizes sum(real*cos + imag*sin) — matches the DFT directly
         }
         
         // Convert to array so it can be stored in params and picked up by new voices
@@ -144,11 +144,14 @@ export class OscDraw {
         // If current wave is custom, immediately update active voices
         if (this.synth.params.vco1.wave === 'custom') {
             const customWave = this.synth.ctx.createPeriodicWave(real, imag);
-            this.synth.activeVoices.forEach(voice => {
+            Object.values(this.synth.activeVoices).forEach(voice => {
                 if (voice.vco1Osc) {
                     voice.vco1Osc.setPeriodicWave(customWave);
                 }
             });
+            if (this.synth.monoVoice && this.synth.monoVoice.vco1Osc) {
+                this.synth.monoVoice.vco1Osc.setPeriodicWave(customWave);
+            }
         }
     }
 }

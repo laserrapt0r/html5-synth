@@ -136,11 +136,16 @@ export class UIController {
 
         document.getElementById('master-vol').addEventListener('input', (e) => this.synth.updateParams('master', 'volume', e.target.value));
 
+        // Only voice-level params can be locked per step — Voice.getParam knows
+        // nothing about global groups (effects, master, LFOs), so locking those
+        // would silently do nothing during playback.
+        const lockableGroups = new Set(['vco1', 'vco2', 'vco3', 'noise', 'filter', 'fEnv', 'aEnv']);
+
         this.paramBindings.forEach(binding => {
             const handleParamChange = (value, el) => {
                 if (this.isUpdatingUI) return;
-                
-                if (this.editStepIndex !== null) {
+
+                if (this.editStepIndex !== null && lockableGroups.has(binding.group)) {
                     const bankIdx = this.trackBanks[this.editStepIndex.trackIndex];
                     this.sequencer.setStepLock(this.editStepIndex.stepIndex, binding.group, binding.param, value, bankIdx);
                     el.classList.add('locked');
@@ -192,14 +197,12 @@ export class UIController {
 
         const playBtn = document.getElementById('seq-play');
         playBtn.addEventListener('click', () => {
+            // play()/stop() update the button themselves — and play() may refuse
+            // to start while the AudioContext is still suspended
             if (this.sequencer.isPlaying) {
                 this.sequencer.stop();
-                playBtn.textContent = 'PLAY';
-                playBtn.classList.remove('playing');
             } else {
                 this.sequencer.play();
-                playBtn.textContent = 'STOP';
-                playBtn.classList.add('playing');
             }
         });
 
@@ -221,6 +224,7 @@ export class UIController {
         if (timeDivSelect) {
             timeDivSelect.addEventListener('change', (e) => {
                 this.sequencer.setTimeDiv(e.target.value);
+                e.target.blur();
             });
         }
     }
@@ -305,6 +309,7 @@ export class UIController {
 
                 pitchSelect.addEventListener('change', (e) => {
                     this.sequencer.setStep(i, undefined, parseInt(e.target.value), this.trackBanks[trackIndex]);
+                    e.target.blur(); // keep focus off the select so typing plays notes again
                 });
 
                 col.appendChild(btn);
@@ -473,6 +478,7 @@ export class UIController {
             }
             
             key.addEventListener('mousedown', () => {
+                if (this.synth.ctx.state !== 'running') return; // synth not powered on yet
                 if (this.synth.params.master.arpOn) {
                     this.sequencer.addArpNote(i);
                 } else {
@@ -513,7 +519,7 @@ export class UIController {
         window.addEventListener('blur', () => {
             activeNotes = {};
             document.querySelectorAll('.key.active').forEach(k => k.classList.remove('active'));
-            this.sequencer.arpNotes = []; // Clear arp notes
+            this.sequencer.clearArpNotes(); // also stops the sequencer if the arp auto-started it
             this.synth.stopAllNotes();
         });
     }

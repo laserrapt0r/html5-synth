@@ -214,10 +214,13 @@ export class Sequencer {
         } 
         // Normal Sequencer Logic
         else if (!arpOn) {
+            const playedBanks = new Set(); // both tracks on the same bank must not double-trigger
             for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
                 if (this.trackMuted[trackIndex]) continue;
-                
+
                 const bankIdx = this.trackBanks[trackIndex];
+                if (playedBanks.has(bankIdx)) continue;
+                playedBanks.add(bankIdx);
                 if (bankIdx >= 0 && bankIdx < this.numPatterns) {
                     const stepData = this.patterns[bankIdx][stepNumber];
                     
@@ -255,6 +258,9 @@ export class Sequencer {
 
     play() {
         if (this.isPlaying) return;
+        // Don't start while the AudioContext is suspended (before INIT AUDIO) —
+        // scheduled steps would pile up and burst out on resume.
+        if (this.ctx.state !== 'running') return;
         this.isPlaying = true;
         this.currentStep = 0;
         this.nextNoteTime = this.ctx.currentTime + 0.05; // start shortly after

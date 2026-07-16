@@ -1,25 +1,62 @@
+// Noise buffers are expensive (2 x 2s per creation) — generate once per AudioContext and share
+const noiseBufferCache = new WeakMap();
+
+function getNoiseBuffers(ctx) {
+    let buffers = noiseBufferCache.get(ctx);
+    if (buffers) return buffers;
+
+    const bufferSize = ctx.sampleRate * 2;
+
+    // White Noise Buffer
+    const white = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const whiteData = white.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        whiteData[i] = Math.random() * 2 - 1;
+    }
+
+    // Pink Noise Buffer (Paul Kellet's approximation)
+    const pink = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const pinkData = pink.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+        let w = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + w * 0.0555179;
+        b1 = 0.99332 * b1 + w * 0.0750759;
+        b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856;
+        b4 = 0.55000 * b4 + w * 0.5329522;
+        b5 = -0.7616 * b5 - w * 0.0168980;
+        pinkData[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+        b6 = w * 0.115926;
+    }
+
+    buffers = { white, pink };
+    noiseBufferCache.set(ctx, buffers);
+    return buffers;
+}
+
 export class Voice {
     constructor(audioContext, params) {
         this.ctx = audioContext;
         this.params = params;
 
         this.output = this.ctx.createGain();
-        this.output.gain.value = 0; 
-        
+        this.output.gain.value = 0;
+
         this.pLocks = {};
 
         this.oscs = [];
         this.oscGains = [];
-        
+
         this.filter = this.ctx.createBiquadFilter();
         this.filter.connect(this.output);
 
-        this.whiteNoiseBuffer = null;
-        this.pinkNoiseBuffer = null;
+        const noiseBuffers = getNoiseBuffers(this.ctx);
+        this.whiteNoiseBuffer = noiseBuffers.white;
+        this.pinkNoiseBuffer = noiseBuffers.pink;
         this.noiseSource = null;
         this.noiseGain = this.ctx.createGain();
         this.noiseGain.connect(this.filter);
-        this.createNoiseBuffers();
 
         this.pitchTarget = this.ctx.createGain();
         this.pitchTarget.gain.value = 1;
@@ -32,33 +69,10 @@ export class Voice {
         
         this.isActive = false;
         this.noteFrequency = 440;
-    }
 
-    createNoiseBuffers() {
-        const bufferSize = this.ctx.sampleRate * 2;
-        
-        // White Noise Buffer
-        this.whiteNoiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const whiteData = this.whiteNoiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            whiteData[i] = Math.random() * 2 - 1;
-        }
-
-        // Pink Noise Buffer (Paul Kellet's approximation)
-        this.pinkNoiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const pinkData = this.pinkNoiseBuffer.getChannelData(0);
-        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-        for (let i = 0; i < bufferSize; i++) {
-            let white = Math.random() * 2 - 1;
-            b0 = 0.99886 * b0 + white * 0.0555179;
-            b1 = 0.99332 * b1 + white * 0.0750759;
-            b2 = 0.96900 * b2 + white * 0.1538520;
-            b3 = 0.86650 * b3 + white * 0.3104856;
-            b4 = 0.55000 * b4 + white * 0.5329522;
-            b5 = -0.7616 * b5 - white * 0.0168980;
-            pinkData[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
-            b6 = white * 0.115926;
-        }
+        // Connections made from long-lived nodes (LFOs) into this voice.
+        // They must be severed on cleanup, otherwise the voice can never be GC'd.
+        this.externalConnections = [];
     }
 
     setupOscillators() {
@@ -164,7 +178,27 @@ export class Voice {
         }, (stopTime - this.ctx.currentTime) * 1000);
     }
 
-    updateParams() {
+    disconnect() {
+        // Sever incoming connections from long-lived nodes (LFO mod gains)
+        this.externalConnections.forEach(([source, target]) => {
+            try { source.disconnect(target); } catch (e) { /* already disconnected */ }
+        });
+        this.externalConnections = [];
+
+        this.oscs.forEach(osc => osc.disconnect());
+        this.oscGains.forEach(gain => gain.disconnect());
+        if (this.vco1WaveShaper) this.vco1WaveShaper.disconnect();
+        if (this.noiseSource) this.noiseSource.disconnect();
+        this.noiseGain.disconnect();
+        this.filter.disconnect();
+        this.pitchTarget.disconnect();
+        this.filterTarget.disconnect();
+        try { this.vco1DcOffset.stop(); } catch (e) { /* already stopped */ }
+        this.vco1DcOffset.disconnect();
+        this.output.disconnect();
+    }
+
+    updateParams(skipFrequency = false) {
         if (!this.isActive) return;
 
         for (let i = 0; i < 3; i++) {
@@ -178,9 +212,12 @@ export class Voice {
                     const isCustom = wave === 'custom' && this.params.vco1.customWaveReal;
                     
                     if (isCustom) {
+                        // Make sure no PWM leftovers (DC offset -> WaveShaper) stay connected
+                        this.vco1DcOffset.disconnect();
+                        this.vco1WaveShaper.disconnect();
                         this.vco1Osc.disconnect();
                         this.vco1Osc.connect(this.vco1Gain);
-                        
+
                         const real = new Float32Array(this.params.vco1.customWaveReal);
                         const imag = new Float32Array(this.params.vco1.customWaveImag);
                         const customWave = this.ctx.createPeriodicWave(real, imag);
@@ -205,7 +242,10 @@ export class Voice {
                         
                         // Wire LFO1 to PWM depth if needed (implemented in Synth.js updateLFO1)
                     } else {
-                        // Normal mode
+                        // Normal mode — also sever PWM leftovers, otherwise the
+                        // DC offset keeps feeding the WaveShaper -> vco1Gain (constant DC on output)
+                        this.vco1DcOffset.disconnect();
+                        this.vco1WaveShaper.disconnect();
                         this.vco1Osc.type = wave;
                         this.vco1Osc.disconnect();
                         this.vco1Osc.connect(this.vco1Gain);
@@ -213,9 +253,11 @@ export class Voice {
                 } else {
                     this.oscs[i].type = wave;
                 }
-                
+
                 const octaveMult = Math.pow(2, parseInt(this.getParam(group, 'oct')));
-                this.oscs[i].frequency.value = this.noteFrequency * octaveMult;
+                if (!skipFrequency) {
+                    this.oscs[i].frequency.value = this.noteFrequency * octaveMult;
+                }
                 this.oscs[i].detune.value = parseInt(this.getParam(group, 'tune'));
                 if (this.getParam(group, 'on') === false) {
                     this.oscGains[i].gain.value = 0;

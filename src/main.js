@@ -142,8 +142,18 @@ window.addEventListener('keydown', function labelDetector(e) {
     }
 }, { passive: true });
 
+// Don't hijack keys while the user is typing/selecting in a form control
+// (e.g. picking a note in a step's pitch dropdown)
+const isTypingTarget = (el) => {
+    if (!el || !el.tagName) return false;
+    if (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') return true;
+    if (el.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(el.type)) return true;
+    return false;
+};
+
 window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
+    if (isTypingTarget(e.target)) return;
     if (audioContext && codeMap[e.code]) {
         const note = codeMap[e.code];
         const keyEl = document.querySelector(`.key[data-note="${note}"]`);
@@ -154,6 +164,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('keyup', (e) => {
+    if (isTypingTarget(e.target)) return;
     if (audioContext && codeMap[e.code]) {
         const note = codeMap[e.code];
         const keyEl = document.querySelector(`.key[data-note="${note}"]`);
