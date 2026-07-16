@@ -316,38 +316,69 @@ const defaultLabels = {
     'KeyU': 'U', 'KeyJ': 'J', 'KeyK': 'K'
 };
 
-// Create shortcut labels on piano keys with default labels
+// Layout heuristic for browsers without the Keyboard Layout Map API (Firefox):
+// guess common non-QWERTY layouts from the UI language so the labels are
+// right from the very first paint, not only after the first keypress.
+const layoutGuess = (() => {
+    const lang = ((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase();
+    if (lang.startsWith('fr-ca')) return {}; // Canadian French keyboards are QWERTY-based
+    if (lang.startsWith('de') || lang.startsWith('fr-ch') || /^(cs|sk|hu|sl|hr|bs|sr)/.test(lang)) {
+        return { 'KeyY': 'Z' }; // QWERTZ: physical KeyY carries the Z cap
+    }
+    if (lang.startsWith('fr')) return { 'KeyA': 'Q', 'KeyW': 'Z' }; // AZERTY
+    return {};
+})();
+
+// Labels learned in earlier sessions (covers any layout after first use)
+const LABELS_KEY = 'neon-synth-key-labels';
+let learnedLabels = {};
+try { learnedLabels = JSON.parse(localStorage.getItem(LABELS_KEY)) || {}; } catch (e) { /* ignore */ }
+
+const initialLabels = { ...defaultLabels, ...layoutGuess, ...learnedLabels };
+
+// Create shortcut labels on piano keys
 Object.entries(codeMap).forEach(([code, note]) => {
     const keyEl = document.querySelector(`.key[data-note="${note}"]`);
     if (keyEl) {
         const shortcutLabel = document.createElement('span');
         shortcutLabel.className = 'key-shortcut';
         shortcutLabel.dataset.note = note;
-        shortcutLabel.textContent = defaultLabels[code] || '';
+        shortcutLabel.textContent = initialLabels[code] || '';
         keyEl.appendChild(shortcutLabel);
     }
 });
 
-// Override with actual layout if available
+// Override with actual layout knowledge and remember it for the next session
 const updateKeyLabel = (note, char) => {
     const label = document.querySelector(`.key-shortcut[data-note="${note}"]`);
     if (label) label.textContent = char.toUpperCase();
 };
 
-// Method 1: Keyboard Layout Map API (Chrome/Edge — instant)
+const rememberLabel = (code, char) => {
+    const up = char.toUpperCase();
+    if (learnedLabels[code] === up) return;
+    learnedLabels[code] = up;
+    try { localStorage.setItem(LABELS_KEY, JSON.stringify(learnedLabels)); } catch (e) { /* ignore */ }
+};
+
+// Method 1: Keyboard Layout Map API (Chrome/Edge — instant and exact)
 if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
     navigator.keyboard.getLayoutMap().then(layoutMap => {
         Object.entries(codeMap).forEach(([code, note]) => {
             const char = layoutMap.get(code);
-            if (char) updateKeyLabel(note, char);
+            if (char) {
+                updateKeyLabel(note, char);
+                rememberLabel(code, char);
+            }
         });
     }).catch(() => {});
 }
 
-// Method 2: Detect on keypress (Firefox — corrects labels for non-QWERTY layouts)
+// Method 2: Detect on keypress (Firefox — corrects and persists any layout)
 window.addEventListener('keydown', function labelDetector(e) {
     if (codeMap[e.code] && e.key.length === 1) {
         updateKeyLabel(codeMap[e.code], e.key);
+        rememberLabel(e.code, e.key);
     }
 }, { passive: true });
 
