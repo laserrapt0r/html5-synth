@@ -1,3 +1,6 @@
+// 303-style accent: boosts the amp envelope peak and widens the filter env sweep
+const ACCENT_VELOCITY = 1.25;
+
 export class Sequencer {
     constructor(synth) {
         this.synth = synth;
@@ -12,6 +15,7 @@ export class Sequencer {
         this.currentEditPattern = 0;
         
         this.arpNotes = []; // Stores MIDI note numbers held down
+        this.arpVelocities = {}; // note -> velocity (0..1) of the held key
         this.arpIndex = 0;
         
         // Gate length (0.1 = 10% staccato, 1.0 = 100% legato)
@@ -20,8 +24,8 @@ export class Sequencer {
         this.timeDiv = 0.25;
         
         // Sequence Data: 4 Patterns of 32 steps each
-        this.patterns = Array.from({length: this.numPatterns}, () => 
-            Array.from({length: this.numSteps}, () => ({ active: false, note: 60, tie: false, locks: {} }))
+        this.patterns = Array.from({length: this.numPatterns}, () =>
+            Array.from({length: this.numSteps}, () => ({ active: false, note: 60, tie: false, accent: false, locks: {} }))
         );
         
         this.trackBanks = [0, 1]; // Pattern 1 plays Bank A(0), Pattern 2 plays Bank B(1)
@@ -58,6 +62,10 @@ export class Sequencer {
         this.patterns[patternIndex][index].tie = tie;
     }
 
+    setStepAccent(index, accent, patternIndex = this.currentEditPattern) {
+        this.patterns[patternIndex][index].accent = accent;
+    }
+
     setStepLock(index, group, param, value, patternIndex = this.currentEditPattern) {
         if (value === undefined || value === null) {
             delete this.patterns[patternIndex][index].locks[`${group}.${param}`];
@@ -78,14 +86,11 @@ export class Sequencer {
         this.trackMuted[trackIndex] = muted;
     }
 
-    addArpNote(note) {
-        if (this.synth.params.master.arpLatch && this.arpNotes.length > 0 && !this.keysHeld) {
-             // In a more complex Latch, pressing a new chord clears the old one.
-             // For now, we just accumulate. 
-        }
+    addArpNote(note, velocity = 1) {
         if (!this.arpNotes.includes(note)) {
             this.arpNotes.push(note);
         }
+        this.arpVelocities[note] = velocity;
         if (!this.isPlaying && this.synth.params.master.arpOn) {
             this.autoStartedByArp = true;
             this.play();
@@ -95,6 +100,7 @@ export class Sequencer {
     removeArpNote(note) {
         if (this.synth.params.master.arpLatch) return;
         this.arpNotes = this.arpNotes.filter(n => n !== note);
+        delete this.arpVelocities[note];
         if (this.arpNotes.length === 0 && this.autoStartedByArp) {
             this.stop();
             this.autoStartedByArp = false;
@@ -103,6 +109,7 @@ export class Sequencer {
 
     clearArpNotes() {
         this.arpNotes = [];
+        this.arpVelocities = {};
         if (this.autoStartedByArp) {
             this.stop();
             this.autoStartedByArp = false;
@@ -209,7 +216,16 @@ export class Sequencer {
             }
             
             const noteToPlay = notes[this.arpIndex % notes.length];
-            this.synth.playNote(noteToPlay, scheduledTime, arpGateDuration);
+            // Velocity of the held key this arp note derives from
+            // (octave-expanded notes fall back to their base key)
+            let velocity = 1;
+            for (let n = noteToPlay; n >= noteToPlay - 36; n -= 12) {
+                if (this.arpVelocities[n] !== undefined) {
+                    velocity = this.arpVelocities[n];
+                    break;
+                }
+            }
+            this.synth.playNote(noteToPlay, scheduledTime, arpGateDuration, {}, velocity);
             this.arpIndex++;
         } 
         // Normal Sequencer Logic
@@ -233,7 +249,8 @@ export class Sequencer {
                         const totalSteps = 1 + tieCount;
                         const gateDuration = (stepDuration * totalSteps) * this.gate;
                         
-                        this.synth.playNote(stepData.note, scheduledTime, gateDuration, stepData.locks);
+                        this.synth.playNote(stepData.note, scheduledTime, gateDuration, stepData.locks,
+                            stepData.accent ? ACCENT_VELOCITY : 1);
                     }
                 }
             }

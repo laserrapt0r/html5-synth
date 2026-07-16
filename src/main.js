@@ -4,6 +4,7 @@ import { Visualizer } from './ui/Visualizer.js?v=2';
 import { UIController } from './ui/UIController.js';
 import { Presets } from './audio/Presets.js';
 import { OscDraw } from './ui/OscDraw.js';
+import { MidiInput } from './MidiInput.js';
 
 let audioContext = null;
 let synth = null;
@@ -11,12 +12,14 @@ let sequencer = null;
 let visualizer = null;
 let uiController = null;
 let oscDraw = null;
+let midiInput = null;
 
 audioContext = new (window.AudioContext || window.webkitAudioContext)();
 synth = new Synth(audioContext);
 sequencer = new Sequencer(synth);
 visualizer = new Visualizer(synth);
 uiController = new UIController(synth, sequencer);
+midiInput = new MidiInput(synth, sequencer);
 
 // Set default pattern: Funky Town
 const defaultPattern = [0, 2, 4, 6, 10, 14, 16, 18, 20, 22];
@@ -67,8 +70,11 @@ const initAudio = async () => {
     if (audioContext.state === 'suspended') {
         await audioContext.resume();
     }
-    
+
     visualizer.start();
+
+    // Request MIDI access tied to the power-on gesture (triggers the permission prompt)
+    midiInput.init();
 
     // Visual power on
     document.body.classList.remove('power-off');

@@ -266,10 +266,17 @@ export class UIController {
                 const btn = document.createElement('div');
                 btn.className = 'step-btn';
                 btn.id = `step-btn-t${trackIndex}-${i}`;
-                
+                btn.title = 'Click: on/off · Ctrl+Click: accent · Right-click: tie · Shift+Click: P-Locks';
+
                 btn.addEventListener('click', (e) => {
                     if (e.shiftKey) {
                         this.toggleEditStep(trackIndex, i);
+                    } else if (e.ctrlKey || e.altKey || e.metaKey) {
+                        // Toggle accent (303-style velocity boost)
+                        const bankIdx = this.trackBanks[trackIndex];
+                        const newAccent = !this.sequencer.patterns[bankIdx][i].accent;
+                        this.sequencer.setStepAccent(i, newAccent, bankIdx);
+                        btn.classList.toggle('accent', newAccent);
                     } else {
                         btn.classList.toggle('active');
                         const isActive = btn.classList.contains('active');
@@ -381,6 +388,7 @@ export class UIController {
             
             btn.classList.toggle('active', stepData.active);
             btn.classList.toggle('tie', stepData.tie);
+            btn.classList.toggle('accent', stepData.accent);
             btn.parentElement.classList.toggle('tie-step', stepData.tie);
             select.value = stepData.note;
             btn.classList.remove('edit-mode');
@@ -477,12 +485,23 @@ export class UIController {
                 currentWhiteKey++;
             }
             
-            key.addEventListener('mousedown', () => {
+            key.addEventListener('mousedown', (e) => {
                 if (this.synth.ctx.state !== 'running') return; // synth not powered on yet
+
+                // Mouse has no pressure — use the vertical click position on the
+                // key instead: top edge = 0.5, bottom edge = 1.0. Synthetic events
+                // (computer keyboard, tests) are untrusted and play at full velocity.
+                let velocity = 1;
+                if (e.isTrusted) {
+                    const rect = key.getBoundingClientRect();
+                    const rel = (e.clientY - rect.top) / rect.height;
+                    velocity = 0.5 + 0.5 * Math.min(1, Math.max(0, rel));
+                }
+
                 if (this.synth.params.master.arpOn) {
-                    this.sequencer.addArpNote(i);
+                    this.sequencer.addArpNote(i, velocity);
                 } else {
-                    this.synth.playNote(i, this.synth.ctx.currentTime);
+                    this.synth.playNote(i, this.synth.ctx.currentTime, 0, {}, velocity);
                 }
                 key.classList.add('active');
                 activeNotes[i] = true;

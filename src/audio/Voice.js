@@ -69,6 +69,7 @@ export class Voice {
         
         this.isActive = false;
         this.noteFrequency = 440;
+        this.velocity = 1; // scales amp envelope peak and filter env amount (accent > 1 possible)
 
         // Connections made from long-lived nodes (LFOs) into this voice.
         // They must be severed on cleanup, otherwise the voice can never be GC'd.
@@ -121,10 +122,11 @@ export class Voice {
         return this.params[group][key];
     }
 
-    start(frequency, time, pLocks = {}) {
+    start(frequency, time, pLocks = {}, velocity = 1) {
         this.isActive = true;
         this.noteFrequency = frequency;
         this.pLocks = pLocks || {};
+        this.velocity = velocity;
         
         this.setupOscillators();
         this.updateParams();
@@ -150,15 +152,16 @@ export class Voice {
         const s = Math.max(0, parseFloat(this.getParam('aEnv', 's')));
         const r = parseFloat(this.getParam('aEnv', 'r'));
         
-        // Manually calculate the envelope value at 'time' to bypass browser bugs
+        // Manually calculate the envelope value at 'time' to bypass browser bugs.
+        // Must mirror triggerAmpEnvelope exactly, incl. velocity scaling.
         let envValue = 0;
         if (this.ampEnvStartTime !== undefined) {
             if (time <= this.ampEnvStartTime) {
                 envValue = 0;
             } else if (time <= this.ampEnvStartTime + a) {
-                envValue = (time - this.ampEnvStartTime) / a;
+                envValue = this.velocity * (time - this.ampEnvStartTime) / a;
             } else {
-                envValue = s + (1 - s) * Math.exp(-(time - (this.ampEnvStartTime + a)) / (d / 3));
+                envValue = this.velocity * (s + (1 - s) * Math.exp(-(time - (this.ampEnvStartTime + a)) / (d / 3)));
             }
         }
         
@@ -291,16 +294,17 @@ export class Voice {
         const d = Math.max(0.001, parseFloat(this.getParam('aEnv', 'd')));
         const s = Math.max(0, parseFloat(this.getParam('aEnv', 's')));
         
+        const peak = this.velocity;
         const gain = this.output.gain;
         gain.cancelScheduledValues(time);
         gain.setValueAtTime(0, time);
-        gain.linearRampToValueAtTime(1, time + a);
-        gain.setTargetAtTime(s, time + a, d / 3);
+        gain.linearRampToValueAtTime(peak, time + a);
+        gain.setTargetAtTime(s * peak, time + a, d / 3);
     }
 
     triggerFilterEnvelope(time) {
         const cutoff = parseFloat(this.getParam('filter', 'cutoff'));
-        const amt = parseFloat(this.getParam('fEnv', 'amt'));
+        const amt = parseFloat(this.getParam('fEnv', 'amt')) * this.velocity;
         const a = Math.max(0.001, parseFloat(this.getParam('fEnv', 'a')));
         const d = Math.max(0.001, parseFloat(this.getParam('fEnv', 'd')));
         const s = Math.max(0, parseFloat(this.getParam('fEnv', 's')));

@@ -5,6 +5,7 @@
     --neon-magenta: #ff00ff;
     --neon-lime: #39ff14;
     --neon-yellow: #ffea00;
+    --neon-orange: #ff9100;
     --text-muted: #8892b0;
     --text-bright: #e6f1ff;
     --font-main: 'Orbitron', sans-serif;
@@ -554,6 +555,15 @@ input:checked + .slider.round:before {
     font-size: 0.6rem;
     color: var(--neon-cyan);
     text-shadow: 0 0 4px var(--neon-cyan);
+}
+
+/* Accented steps (Ctrl+Click): 303-style velocity boost */
+.step-btn.accent {
+    border-top-color: var(--neon-orange);
+}
+.step-btn.accent.active::after {
+    background: var(--neon-orange);
+    box-shadow: 0 0 8px var(--neon-orange);
 }
 
 /* Native select is unavoidable for pitch unless custom built, but we can style it strictly */

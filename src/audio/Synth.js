@@ -107,7 +107,7 @@ export class Synth {
         return A4 * Math.pow(2, (note - 69) / 12);
     }
 
-    playNote(note, time, duration = 0, pLocks = {}) {
+    playNote(note, time, duration = 0, pLocks = {}, velocity = 1) {
         if (this.ctx.state !== 'running') return; // don't queue notes while suspended (pre-init)
         const freq = this.noteToFreq(note);
 
@@ -133,7 +133,7 @@ export class Synth {
             this._connectLFOs(voice);
 
             voice.output.connect(this.effects.input);
-            voice.start(freq, time, pLocks);
+            voice.start(freq, time, pLocks, velocity);
             
             // Store voice to manage note-off
             if (this.activeVoices[note]) {
@@ -157,13 +157,15 @@ export class Synth {
                 this.monoVoice.startTime = time;
                 this._connectLFOs(this.monoVoice);
                 this.monoVoice.output.connect(this.effects.input);
-                this.monoVoice.start(freq, time, pLocks);
+                this.monoVoice.start(freq, time, pLocks, velocity);
             } else {
                 // Glide / Legato
                 const glideTime = parseFloat(this.params.master.glide);
 
                 // Retrigger envelopes if Mono, don't retrigger if Legato
+                // (legato keeps the first note's velocity, like real mono synths)
                 if (this.params.master.polyphony === 'mono') {
+                    this.monoVoice.velocity = velocity;
                     this.monoVoice.triggerAmpEnvelope(time);
                     this.monoVoice.triggerFilterEnvelope(time);
                 }
