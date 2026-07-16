@@ -148,6 +148,28 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         await sleep(300);
         assert(recStarted && !arBtn.classList.contains('recording'), 'audio recorder starts and stops');
 
+        // FILL button is momentary
+        const fillBtn = document.getElementById('seq-fill');
+        fillBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        const fillOn = fillBtn.classList.contains('playing');
+        fillBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        assert(fillOn && !fillBtn.classList.contains('playing'), 'FILL button is momentary (hold to activate)');
+
+        // Euclidean generator via the TOOLS row (undone afterwards)
+        document.getElementById('euclid-hits').value = '4';
+        document.getElementById('pat-euclid').click();
+        let activeCount = 0;
+        for (let i = 0; i < 32; i++) {
+            if (document.getElementById(`step-btn-t0-${i}`).classList.contains('active')) activeCount++;
+        }
+        assert(activeCount === 4 &&
+               document.getElementById('step-btn-t0-0').classList.contains('active') &&
+               document.getElementById('step-btn-t0-8').classList.contains('active'),
+            'EUC distributes 4 hits evenly across the 32-step loop');
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
+        assert(document.getElementById('step-btn-t0-22').classList.contains('active'),
+            'Euclidean generator is undoable');
+
         // Song chips (4-track labels)
         document.getElementById('song-add').click();
         const chip = document.querySelector('.song-chip');
@@ -364,6 +386,34 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         assert(!!liveHit, 'track level scales the velocity');
         seq.setTrackLevel(2, 1);
         seq.setStepLock(0, 'filter', 'cutoff', undefined, 0);
+
+        // Euclidean generator (engine level): E(3,8) = tresillo
+        seq.setPatternLength(0, 8);
+        seq.euclidPattern(0, 3);
+        const hits = [];
+        for (let i = 0; i < 8; i++) if (seq.patterns[0][i].active) hits.push(i);
+        assert(hits.join(',') === '0,3,6', `euclidPattern(3,8) yields the tresillo (got ${hits.join(',')})`);
+        seq.setPatternLength(0, 32);
+
+        // Fill conditions (only track 1 on bank 0, no leftover track sounds)
+        seq.trackBanks = [0, 4, 5, 6];
+        seq.setTrackSound(0, null, null);
+        seq.setTrackSound(1, null, null);
+        played.length = 0;
+        seq.absStep = 0;
+        seq.patterns[0][0].active = true;
+        seq.patterns[0][0].cond = 'fill';
+        seq.scheduleNote(0, ctx.currentTime);
+        seq.fillActive = true;
+        seq.scheduleNote(0, ctx.currentTime);
+        assert(played.length === 1, "'fill' steps play only while FILL is held");
+        played.length = 0;
+        seq.patterns[0][0].cond = '!fill';
+        seq.scheduleNote(0, ctx.currentTime);
+        seq.fillActive = false;
+        seq.scheduleNote(0, ctx.currentTime);
+        assert(played.length === 1, "'!fill' steps go silent while FILL is held");
+        seq.patterns[0][0].cond = null;
 
         // Pattern tools
         seq.patterns[0][5].active = true;

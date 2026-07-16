@@ -117,7 +117,7 @@ Each of the four tracks has, left of its step grid:
 | **Shift+Click** | P-Lock edit mode: every control you now move is stored for this step only |
 | **Wheel** | Trigger probability (100/75/50/25 %) |
 | **Shift+Wheel** | Ratchet — 1–4 retriggers within the step |
-| **Ctrl+Wheel** | Trig condition (1:2 … 4:4): plays only on matching loop passes |
+| **Ctrl+Wheel** | Trig condition: 1:2 … 4:4 (loop passes) or `fill`/`!fill` (reacts to the FILL button) |
 | **Ctrl+Z / Ctrl+Y** | Undo/redo any pattern edit |
 
 Probability, ratchet and condition are shown as a small yellow info line on
@@ -132,7 +132,12 @@ the step (e.g. `75% ×2 1:2`).
 - **REC** records what you play into the **→P** target track — step-by-step
   while stopped, beat-quantized while playing. **CLICK** adds a metronome and,
   with REC armed, a one-bar count-in.
-- **TOOLS** — copy/paste/clear and rotate (◀ ▶) the target track's pattern.
+- **TOOLS** — the **Euclidean generator** (pick a hit count, press EUC — the hits are
+  distributed evenly across the loop: E(3,8) is the classic tresillo) plus
+  copy/paste/clear and rotate (◀ ▶), all acting on the target track's pattern.
+- **FILL** — hold it during playback: steps with a `fill` condition play,
+  `!fill` steps go silent. Program a drum roll on `fill` steps and hold the
+  button at the end of a phrase — instant live fill.
 - **SONG** — chain scenes: **+ADD** captures the current bank selection of all
   four tracks as a scene, clicking a chip raises its repeat count, right-click
   removes it. With SONG enabled the chain drives the banks automatically.

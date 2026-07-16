@@ -589,6 +589,7 @@
                     </div>
 
                     <button id="seq-click" class="mini-btn" title="Metronome (with REC armed: one bar count-in before recording)">CLICK</button>
+                    <button id="seq-fill" class="mini-btn" title="Hold: steps with a 'fill' condition play, '!fill' steps go silent (set via Ctrl+Wheel on a step)">FILL</button>
 
                     <div class="control-group horizontal" style="gap: 5px; border-left: 1px solid #333; padding-left: 10px;">
                         <label>ARP</label>
@@ -638,6 +639,8 @@
                     <!-- Pattern tools operate on the REC target track's bank -->
                     <div style="margin-left: auto; display: flex; gap: 4px; align-items: center;">
                         <label style="font-size: 0.6rem; letter-spacing: 1px;" title="Tools act on the REC target track's bank">TOOLS</label>
+                        <select id="euclid-hits" class="preset-dropdown" style="font-size: 0.65rem; padding: 2px;" title="Number of hits for the Euclidean generator"></select>
+                        <button id="pat-euclid" class="mini-btn" title="Euclidean rhythm: distribute the hits evenly across the target track's loop">EUC</button>
                         <button id="pat-copy" class="mini-btn" title="Copy the target track's pattern">COPY</button>
                         <button id="pat-paste" class="mini-btn" title="Paste into the target track's pattern">PASTE</button>
                         <button id="pat-clear" class="mini-btn" title="Clear the target track's pattern">CLR</button>
@@ -667,7 +670,7 @@
                     <tr><td>Shift+Click</td><td>P-Lock edit mode: every control you move is locked to this step only</td></tr>
                     <tr><td>Wheel</td><td>Trigger probability (100/75/50/25&nbsp;%)</td></tr>
                     <tr><td>Shift+Wheel</td><td>Ratchet: 1–4 retriggers within the step</td></tr>
-                    <tr><td>Ctrl+Wheel</td><td>Trig condition (1:2 … 4:4 — plays only on matching loop passes)</td></tr>
+                    <tr><td>Ctrl+Wheel</td><td>Trig condition (1:2 … 4:4 — plays only on matching loop passes; 'fill'/'!fill' react to the FILL button)</td></tr>
                     <tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo pattern edits</td></tr>
                 </table>
                 <h3>TRACKS &amp; TRANSPORT</h3>
@@ -678,7 +681,8 @@
                     <tr><td>Level slider</td><td>Track volume (mini mixer)</td></tr>
                     <tr><td>PLAY / STOP</td><td>Play toggles play/pause (keeps position); Stop resets and cuts notes</td></tr>
                     <tr><td>REC + →P</td><td>Record into the target track: step entry when stopped, beat-quantized while playing; CLICK adds a metronome and a 1-bar count-in</td></tr>
-                    <tr><td>TOOLS</td><td>Copy/paste/clear/rotate the target track's pattern</td></tr>
+                    <tr><td>FILL (hold)</td><td>Steps with a 'fill' condition play, '!fill' steps go silent — live transitions</td></tr>
+                    <tr><td>TOOLS</td><td>Euclidean generator (EUC: distribute N hits evenly) plus copy/paste/clear/rotate — all on the target track's pattern</td></tr>
                     <tr><td>SONG</td><td>Chain bank scenes: +ADD captures the current banks, click a chip = more repeats, right-click = remove</td></tr>
                     <tr><td>● REC AUDIO</td><td>Record the master output to an audio file</td></tr>
                 </table>

@@ -126,7 +126,7 @@ Jeder der vier Tracks hat links neben seinem Step-Grid:
 | **Shift+Klick** | P-Lock-Modus: Jeder Regler, den du jetzt bewegst, gilt nur für diesen Step |
 | **Mausrad** | Trigger-Wahrscheinlichkeit (100/75/50/25 %) |
 | **Shift+Rad** | Ratchet — 1–4 Wiederholungen innerhalb des Steps |
-| **Strg+Rad** | Trig-Condition (1:2 … 4:4): spielt nur in passenden Loop-Durchläufen |
+| **Strg+Rad** | Trig-Condition: 1:2 … 4:4 (Loop-Durchläufe) oder `fill`/`!fill` (reagiert auf die FILL-Taste) |
 | **Strg+Z / Strg+Y** | Pattern-Änderungen rückgängig machen / wiederholen |
 
 Wahrscheinlichkeit, Ratchet und Condition erscheinen als kleine gelbe
@@ -141,8 +141,13 @@ Infozeile auf dem Step (z. B. `75% ×2 1:2`).
 - **REC** nimmt dein Spiel in den **→P**-Ziel-Track auf — im Stand Schritt für
   Schritt, bei laufendem Sequencer quantisiert auf den Beat. **CLICK**
   aktiviert das Metronom und liefert bei scharfem REC einen 1-Takt-Einzähler.
-- **TOOLS** — Kopieren/Einfügen/Löschen und Rotieren (◀ ▶) des
-  Ziel-Track-Patterns.
+- **TOOLS** — der **Euklid-Generator** (Anzahl Schläge wählen, EUC drücken — die
+  Schläge werden gleichmäßig über den Loop verteilt: E(3,8) ist der klassische
+  Tresillo) plus Kopieren/Einfügen/Löschen und Rotieren (◀ ▶), alles auf dem
+  Ziel-Track-Pattern.
+- **FILL** — während der Wiedergabe gedrückt halten: Steps mit `fill`-Condition
+  spielen, `!fill`-Steps verstummen. Einen Drum-Roll auf `fill`-Steps
+  programmieren und am Phrasenende die Taste halten — fertig ist der Live-Fill.
 - **SONG** — Szenen verketten: **+ADD** erfasst die aktuelle Bank-Auswahl
   aller vier Tracks als Szene, Klick auf einen Chip erhöht die Wiederholungen,
   Rechtsklick entfernt ihn. Mit aktivem SONG steuert die Kette die Banks

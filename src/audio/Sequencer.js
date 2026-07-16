@@ -61,6 +61,9 @@ export class Sequencer {
         // Metronome (also provides the count-in when recording)
         this.metronomeOn = false;
 
+        // FILL: while held, steps with cond 'fill' play and '!fill' steps mute
+        this.fillActive = false;
+
         // Absolute step counter since play-from-stop (for trig conditions)
         this.absStep = 0;
 
@@ -140,6 +143,19 @@ export class Sequencer {
     clearPattern(bankIdx) {
         for (let i = 0; i < this.numSteps; i++) {
             this.patterns[bankIdx][i] = this._emptyStep();
+        }
+    }
+
+    // Euclidean rhythm: distribute `hits` as evenly as possible across the
+    // bank's loop length (Bresenham variant — E(3,8) gives the tresillo).
+    // Only touches the active flags; notes, locks and accents survive.
+    euclidPattern(bankIdx, hits) {
+        const len = this.patternLengths[bankIdx];
+        const k = Math.max(1, Math.min(len, parseInt(hits) || 1));
+        for (let i = 0; i < len; i++) {
+            const hit = ((i * k) % len) < k;
+            this.patterns[bankIdx][i].active = hit;
+            this.patterns[bankIdx][i].tie = false; // ties would blur the generated rhythm
         }
     }
 
@@ -482,10 +498,17 @@ export class Sequencer {
                 }
 
                 if (stepData.active) {
-                    // Trig condition: play only on matching loop iterations (e.g. '1:2')
+                    // Trig conditions: loop-based ('1:2' …) or fill-based
+                    // ('fill' plays only while FILL is held, '!fill' mutes then)
                     if (stepData.cond) {
-                        const [n, m] = String(stepData.cond).split(':').map(Number);
-                        if (m > 1 && (Math.floor(this.absStep / len) % m) !== (n - 1)) continue;
+                        if (stepData.cond === 'fill') {
+                            if (!this.fillActive) continue;
+                        } else if (stepData.cond === '!fill') {
+                            if (this.fillActive) continue;
+                        } else {
+                            const [n, m] = String(stepData.cond).split(':').map(Number);
+                            if (m > 1 && (Math.floor(this.absStep / len) % m) !== (n - 1)) continue;
+                        }
                     }
 
                     // Probability: chance that this step triggers at all

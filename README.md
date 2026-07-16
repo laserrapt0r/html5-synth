@@ -69,9 +69,10 @@ features typically found on hardware synths.
 | **Shift+Click** on a step | Enter **P-Lock edit mode** — every control you now move is locked to this step only |
 | **Wheel** on a step | Trigger **probability** (100/75/50/25 %) |
 | **Shift+Wheel** on a step | **Ratchet** (1–4 retriggers per step) |
-| **Ctrl+Wheel** on a step | **Trig condition** (1:2, 2:2, 1:4 … plays only on matching loop passes) |
+| **Ctrl+Wheel** on a step | **Trig condition** (1:2 … 4:4 for loop passes, `fill`/`!fill` for the FILL button) |
 | **Ctrl+Z / Ctrl+Y** | Undo/redo pattern edits |
-| TOOLS row | Copy/paste/clear/rotate the REC-target track's pattern |
+| TOOLS row | **Euclidean generator** (EUC) plus copy/paste/clear/rotate — on the REC-target track's pattern |
+| **FILL** (hold) | Steps with a `fill` condition play, `!fill` steps go silent — instant live fills |
 | CLICK | Metronome; with REC armed you get a one-bar count-in |
 | +/− next to the keys | Octave shift for on-screen and computer keyboard |
 | SOUND select (per track) | The track's sound: **LIVE** = current panel sound, or any preset/user patch (voice params only — effects stay global) |

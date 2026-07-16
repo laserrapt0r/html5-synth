@@ -379,6 +379,18 @@ export class UIController {
             });
         }
 
+        // FILL: momentary — hold to activate 'fill' steps and mute '!fill' steps
+        const fillBtn = document.getElementById('seq-fill');
+        if (fillBtn) {
+            const setFill = (on) => {
+                this.sequencer.fillActive = on;
+                fillBtn.classList.toggle('playing', on);
+            };
+            fillBtn.addEventListener('mousedown', () => setFill(true));
+            fillBtn.addEventListener('mouseup', () => setFill(false));
+            fillBtn.addEventListener('mouseleave', () => setFill(false));
+        }
+
         // Undo/redo for pattern edits (Ctrl+Z / Ctrl+Shift+Z or Ctrl+Y)
         window.addEventListener('keydown', (e) => {
             if (!(e.ctrlKey || e.metaKey)) return;
@@ -611,7 +623,7 @@ export class UIController {
                     if (e.shiftKey) {
                         step.ratchet = Math.max(1, Math.min(4, (parseInt(step.ratchet) || 1) + dir));
                     } else if (e.ctrlKey || e.metaKey || e.altKey) {
-                        const conds = [null, '1:2', '2:2', '1:4', '2:4', '3:4', '4:4'];
+                        const conds = [null, '1:2', '2:2', '1:4', '2:4', '3:4', '4:4', 'fill', '!fill'];
                         const idx = Math.max(0, Math.min(conds.length - 1, conds.indexOf(step.cond || null) + dir));
                         step.cond = conds[idx];
                     } else {
@@ -695,6 +707,24 @@ export class UIController {
             const btn = document.getElementById(id);
             if (btn) btn.addEventListener('click', fn);
         };
+
+        // Euclidean generator: distribute N hits across the target bank's loop
+        const euclidSel = document.getElementById('euclid-hits');
+        if (euclidSel && euclidSel.options.length === 0) {
+            for (let n = 1; n <= 16; n++) {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = n;
+                if (n === 4) opt.selected = true;
+                euclidSel.appendChild(opt);
+            }
+        }
+        wire('pat-euclid', () => {
+            this.pushUndo();
+            const hits = euclidSel ? parseInt(euclidSel.value) : 4;
+            this.sequencer.euclidPattern(targetBank(), hits);
+            this.renderAllTracks();
+        });
 
         wire('pat-copy', () => {
             this.patternClipboard = this.sequencer.copyPattern(targetBank());

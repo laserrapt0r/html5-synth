@@ -115,8 +115,9 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
   from the previous chain element triggers a 303-style **slide** (`Synth.slideNote`).
 - `accent` — plays the step with `ACCENT_VELOCITY` (1.25): louder and with a wider filter sweep.
 - `prob` — trigger probability (0..1); `ratchet` — 1–4 evenly spaced retriggers within the step
-  (bypasses tie-gate extension); `cond` — trig condition `'n:m'`, plays when
-  `floor(absStep/len) % m === n-1`.
+  (bypasses tie-gate extension); `cond` — trig condition: `'n:m'` plays when
+  `floor(absStep/len) % m === n-1`; `'fill'`/`'!fill'` react to `sequencer.fillActive`
+  (held FILL button).
 - `locks` — P-Locks: `{ "group.param": value }`, e.g. `{ "filter.cutoff": "400" }`.
   Applied per note via `Voice.getParam`, which prefers a lock over `Synth.params`.
   Only voice-level groups are lockable (`vco1-3`, `noise`, `filter`, `fEnv`, `aEnv`, `pEnv`).
@@ -198,7 +199,7 @@ within the next 100 ms (`scheduleAheadTime`) at sample-accurate AudioContext tim
 | `setPatternLength(bank, len)` | Loop length 1–32 per bank |
 | `setSongMode / songChain` | Song scenes `{banks:[a,b], repeats}` applied at loop boundaries |
 | `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized while playing — into `recTarget`'s bank; `play()` with REC armed and the metronome on prepends a one-bar count-in |
-| `copyPattern/pastePattern/clearPattern/shiftPattern` | Pattern tools (UIController keeps the clipboard and the undo/redo snapshot stacks) |
+| `copyPattern/pastePattern/clearPattern/shiftPattern/euclidPattern` | Pattern tools incl. the Euclidean generator (UIController keeps the clipboard and the undo/redo snapshot stacks) |
 | `metronomeOn` / `_click(time, accent)` | Metronome blips straight into the master bus |
 | `setTrackSound(track, id, locks)` | Assigns a per-track sound (patch id + flattened voice-param locks; null = LIVE) |
 | `setTrackLevel(track, v)` / `trackLevels` | Per-track volume 0..1.25, applied as a velocity factor (mini mixer) |
