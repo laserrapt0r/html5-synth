@@ -110,21 +110,28 @@ export class Effects {
         this.reverbNode.buffer = impulse;
     }
 
+    // Smoothly approach a new value instead of jumping (avoids zipper noise/clicks)
+    _smooth(param, value, tau = 0.02) {
+        const now = this.ctx.currentTime;
+        param.cancelScheduledValues(now);
+        param.setTargetAtTime(value, now, tau);
+    }
+
     setDistortion(isOn, drive) {
-        this.distMix.gain.value = isOn ? 1 : 0;
-        this.distBypass.gain.value = isOn ? 0 : 1;
+        this._smooth(this.distMix.gain, isOn ? 1 : 0);
+        this._smooth(this.distBypass.gain, isOn ? 0 : 1);
         this.distortionNode.curve = this.makeDistortionCurve(drive);
     }
 
     setDelay(isOn, time, feedback, mix) {
-        this.delayMixNode.gain.value = isOn ? 1 : 0;
-        this.delayNode.delayTime.value = time;
-        this.delayFeedback.gain.value = feedback;
-        this.delayMix.gain.value = mix;
+        this._smooth(this.delayMixNode.gain, isOn ? 1 : 0);
+        this._smooth(this.delayNode.delayTime, parseFloat(time), 0.03);
+        this._smooth(this.delayFeedback.gain, parseFloat(feedback));
+        this._smooth(this.delayMix.gain, parseFloat(mix));
     }
 
     setReverb(isOn, mix) {
-        this.reverbMixNode.gain.value = isOn ? 1 : 0;
-        this.reverbMix.gain.value = mix;
+        this._smooth(this.reverbMixNode.gain, isOn ? 1 : 0);
+        this._smooth(this.reverbMix.gain, parseFloat(mix));
     }
 }

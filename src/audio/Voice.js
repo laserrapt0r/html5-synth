@@ -43,7 +43,14 @@ export class Voice {
         this.output = this.ctx.createGain();
         this.output.gain.value = 0;
 
+        // Stereo placement (voice-spread / unison spread); Synth connects
+        // panner -> effects, everything inside the voice stays mono until here.
+        this.panner = this.ctx.createStereoPanner();
+        this.output.connect(this.panner);
+
         this.pLocks = {};
+        this.unisonDetune = 0; // extra cents for unison sibling voices
+        this.unisonSiblings = []; // set by Synth on the primary voice
 
         this.oscs = [];
         this.oscGains = [];
@@ -155,23 +162,10 @@ export class Voice {
         if (!this.isActive || this.isStopping) return;
         this.isStopping = true;
         
-        const a = Math.max(0.001, parseFloat(this.getParam('aEnv', 'a')));
-        const d = Math.max(0.001, parseFloat(this.getParam('aEnv', 'd')));
-        const s = Math.max(0, parseFloat(this.getParam('aEnv', 's')));
         const r = parseFloat(this.getParam('aEnv', 'r'));
-        
-        // Manually calculate the envelope value at 'time' to bypass browser bugs.
-        // Must mirror triggerAmpEnvelope exactly, incl. velocity scaling.
-        let envValue = 0;
-        if (this.ampEnvStartTime !== undefined) {
-            if (time <= this.ampEnvStartTime) {
-                envValue = 0;
-            } else if (time <= this.ampEnvStartTime + a) {
-                envValue = this.velocity * (time - this.ampEnvStartTime) / a;
-            } else {
-                envValue = this.velocity * (s + (1 - s) * Math.exp(-(time - (this.ampEnvStartTime + a)) / (d / 3)));
-            }
-        }
+
+        // Manually calculate the envelope value at 'time' to bypass browser bugs
+        const envValue = this._ampEnvValueAt(time);
         
         this.output.gain.cancelScheduledValues(time);
         this.output.gain.setValueAtTime(envValue, time);
@@ -209,6 +203,33 @@ export class Voice {
         try { this.pitchEnvSource.stop(); } catch (e) { /* already stopped */ }
         this.pitchEnvSource.disconnect();
         this.output.disconnect();
+        this.panner.disconnect();
+    }
+
+    // Glide the sounding pitch to a new frequency (303-style slide / legato).
+    // Anchors on the last targeted frequency so chained slides stay consistent
+    // even when scheduled ahead of playback.
+    glideTo(frequency, time, glideTime) {
+        const fromFreq = this.noteFrequency;
+        this.noteFrequency = frequency;
+        this.oscs.forEach((osc, i) => {
+            const octaveMult = Math.pow(2, parseInt(this.getParam(`vco${i + 1}`, 'oct')));
+            osc.frequency.cancelScheduledValues(time);
+            osc.frequency.setValueAtTime(fromFreq * octaveMult, time);
+            osc.frequency.setTargetAtTime(frequency * octaveMult, time, Math.max(0.005, glideTime / 3));
+        });
+    }
+
+    // Smoothly approach a value (zipper-noise prevention). Immediate on the
+    // first application so note starts are exact.
+    _smooth(param, value, tau = 0.02) {
+        if (!this._paramsApplied) {
+            param.value = value;
+            return;
+        }
+        const now = this.ctx.currentTime;
+        param.cancelScheduledValues(now);
+        param.setTargetAtTime(value, now, tau);
     }
 
     updateParams(skipFrequency = false) {
@@ -271,16 +292,16 @@ export class Voice {
                 if (!skipFrequency) {
                     this.oscs[i].frequency.value = this.noteFrequency * octaveMult;
                 }
-                this.oscs[i].detune.value = parseInt(this.getParam(group, 'tune'));
+                this._smooth(this.oscs[i].detune, parseInt(this.getParam(group, 'tune')) + this.unisonDetune, 0.01);
                 if (this.getParam(group, 'on') === false) {
-                    this.oscGains[i].gain.value = 0;
+                    this._smooth(this.oscGains[i].gain, 0);
                 } else {
-                    this.oscGains[i].gain.value = parseFloat(this.getParam(group, 'level'));
+                    this._smooth(this.oscGains[i].gain, parseFloat(this.getParam(group, 'level')));
                 }
             }
         }
 
-        this.noiseGain.gain.value = parseFloat(this.getParam('noise', 'level'));
+        this._smooth(this.noiseGain.gain, parseFloat(this.getParam('noise', 'level')));
         const targetNoiseBuffer = this.getParam('noise', 'type') === 'pink' ? this.pinkNoiseBuffer : this.whiteNoiseBuffer;
         if (this.noiseSource && this.noiseSource.buffer !== targetNoiseBuffer) {
             const newSource = this.ctx.createBufferSource();
@@ -294,20 +315,54 @@ export class Voice {
         }
 
         this.filter.type = this.getParam('filter', 'type');
-        this.filter.Q.value = parseFloat(this.getParam('filter', 'res'));
+        this._smooth(this.filter.Q, parseFloat(this.getParam('filter', 'res')), 0.01);
         this.filterTarget.connect(this.filter.frequency);
+
+        // Live cutoff: when cutoff/res/env settings change while the note is
+        // sounding, re-target the filter towards the new sustain frequency —
+        // like turning the cutoff knob on a real synth.
+        const cutoff = parseFloat(this.getParam('filter', 'cutoff'));
+        const fS = Math.max(0, parseFloat(this.getParam('fEnv', 's')));
+        const fAmt = parseFloat(this.getParam('fEnv', 'amt')) * this.velocity;
+        const sustainFreq = Math.max(20, Math.min(20000, cutoff + fAmt * fS));
+        if (this._lastSustainFreq !== undefined && Math.abs(sustainFreq - this._lastSustainFreq) > 0.5) {
+            const now = this.ctx.currentTime;
+            this.filter.frequency.cancelScheduledValues(now);
+            this.filter.frequency.setTargetAtTime(sustainFreq, now, 0.03);
+        }
+        this._lastSustainFreq = sustainFreq;
+
+        this._paramsApplied = true;
     }
 
-    triggerAmpEnvelope(time) {
-        this.ampEnvStartTime = time;
+    // Envelope value at 'time', mirroring the automation scheduled by
+    // triggerAmpEnvelope (incl. velocity scaling and retrigger start level)
+    _ampEnvValueAt(time) {
+        if (this.ampEnvStartTime === undefined || time <= this.ampEnvStartTime) return 0;
         const a = Math.max(0.001, parseFloat(this.getParam('aEnv', 'a')));
         const d = Math.max(0.001, parseFloat(this.getParam('aEnv', 'd')));
         const s = Math.max(0, parseFloat(this.getParam('aEnv', 's')));
-        
+        const start = this.ampEnvStartValue || 0;
+        if (time <= this.ampEnvStartTime + a) {
+            return start + (this.velocity - start) * (time - this.ampEnvStartTime) / a;
+        }
+        return this.velocity * (s + (1 - s) * Math.exp(-(time - (this.ampEnvStartTime + a)) / (d / 3)));
+    }
+
+    triggerAmpEnvelope(time, fromValue = null) {
+        // Retrigger from the current envelope level instead of hard-resetting
+        // to 0 — real envelopes don't click on fast mono runs.
+        const startVal = fromValue !== null ? fromValue : this._ampEnvValueAt(time);
+        this.ampEnvStartTime = time;
+        this.ampEnvStartValue = startVal;
+        const a = Math.max(0.001, parseFloat(this.getParam('aEnv', 'a')));
+        const d = Math.max(0.001, parseFloat(this.getParam('aEnv', 'd')));
+        const s = Math.max(0, parseFloat(this.getParam('aEnv', 's')));
+
         const peak = this.velocity;
         const gain = this.output.gain;
         gain.cancelScheduledValues(time);
-        gain.setValueAtTime(0, time);
+        gain.setValueAtTime(startVal, time);
         gain.linearRampToValueAtTime(peak, time + a);
         gain.setTargetAtTime(s * peak, time + a, d / 3);
     }
@@ -342,5 +397,6 @@ export class Voice {
         freq.setValueAtTime(cutoff, time);
         freq.linearRampToValueAtTime(targetFreq, time + a);
         freq.setTargetAtTime(sustainFreq, time + a, d / 3);
+        this._lastSustainFreq = sustainFreq;
     }
 }

@@ -21,6 +21,7 @@
             <div class="master-controls">
                 <div class="control-group">
                     <label>PRESET</label>
+                    <div style="display: flex; gap: 4px; align-items: center;">
                     <select id="preset-select" class="preset-dropdown">
                         <option value="init">INIT PATCH</option>
                         <option value="cyber-bass">CYBER BASS</option>
@@ -41,6 +42,12 @@
                         <option value="laser-zap">LASER ZAP</option>
                         <option value="void-drone">VOID DRONE</option>
                     </select>
+                    <button id="patch-save" class="mini-btn" title="Save current sound as user patch">SAVE</button>
+                    <button id="patch-delete" class="mini-btn" title="Delete selected user patch">DEL</button>
+                    <button id="patch-export" class="mini-btn" title="Export project as JSON file">EXP</button>
+                    <button id="patch-import" class="mini-btn" title="Import project from JSON file">IMP</button>
+                    <input type="file" id="patch-file" accept=".json,application/json" style="display: none;">
+                    </div>
                 </div>
                 <div class="control-group">
                     <label>MASTER</label>
@@ -59,7 +66,7 @@
                 </div>
                 <div class="control-group">
                     <label>MIDI</label>
-                    <span id="midi-status" class="led-display" title="MIDI input status (connect a keyboard and press INIT AUDIO)">--</span>
+                    <span id="midi-status" class="led-display" style="min-width: 44px; text-align: center; white-space: nowrap; font-size: 0.7rem;" title="MIDI input status (connect a keyboard and press INIT AUDIO)">--</span>
                 </div>
                 <button id="power-btn" class="glow-btn power">INIT AUDIO</button>
             </div>
@@ -321,7 +328,9 @@
                     <div class="controls-row filter-main">
                         <div class="control-group">
                             <label>CUTOFF</label>
-                            <input type="range" id="filter-cutoff" min="20" max="20000" step="1" value="1500">
+                            <!-- Log-scaled: slider position 0..1 maps to 20..20000 Hz -->
+                            <input type="range" id="filter-cutoff" min="0" max="1" step="0.005" value="0.625"
+                                   data-log-min="20" data-log-max="20000">
                         </div>
                         <div class="control-group">
                             <label>RES (Q)</label>
@@ -411,6 +420,17 @@
                             </div>
                             <div class="controls-row">
                                 <div class="control-group">
+                                    <label>SYNC</label>
+                                    <select id="delay-sync" class="preset-dropdown" style="font-size: 0.7rem; padding: 2px;" title="Sync delay time to the BPM">
+                                        <option value="0" selected>FREE</option>
+                                        <option value="1">1/4</option>
+                                        <option value="0.75">1/8.</option>
+                                        <option value="0.5">1/8</option>
+                                        <option value="0.3333">1/8T</option>
+                                        <option value="0.25">1/16</option>
+                                    </select>
+                                </div>
+                                <div class="control-group">
                                     <label>TIME</label>
                                     <input type="range" id="delay-time" min="0.01" max="1" step="0.01" value="0.3">
                                 </div>
@@ -441,6 +461,27 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Stereo / Unison (output stage) -->
+                        <div class="fx-module">
+                            <div class="fx-header">
+                                <span>STEREO / UNISON</span>
+                            </div>
+                            <div class="controls-row">
+                                <div class="control-group">
+                                    <label>VOICES</label>
+                                    <input type="range" id="master-unison" min="1" max="3" step="1" value="1" title="Unison voices per note (poly mode)">
+                                </div>
+                                <div class="control-group">
+                                    <label>DETUNE</label>
+                                    <input type="range" id="master-unidetune" min="0" max="50" step="1" value="12" title="Unison detune spread in cents">
+                                </div>
+                                <div class="control-group">
+                                    <label>SPREAD</label>
+                                    <input type="range" id="master-spread" min="0" max="1" step="0.01" value="0" title="Stereo width of the voices">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -457,24 +498,28 @@
         <!-- Sequencer -->
         <section class="sequencer-panel panel module">
             <div class="seq-header">
-                <h2>32-STEP SEQUENCER</h2>
-                <div class="seq-controls" style="display: flex; gap: 15px; align-items: center;">
-                    <button id="seq-play" class="glow-btn play-btn">PLAY</button>
-                    
+                <h2 style="white-space: nowrap;">SEQUENCER</h2>
+                <div class="seq-controls" style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 0;">
+                    <div style="display: flex; gap: 5px;">
+                        <button id="seq-play" class="glow-btn play-btn">PLAY</button>
+                        <button id="seq-stop" class="glow-btn stop-btn" title="Stop and reset to step 1">STOP</button>
+                        <button id="seq-rec" class="glow-btn rec-btn" title="Record played notes into pattern 1 (step entry when stopped, quantized while playing)">REC</button>
+                    </div>
+
                     <div class="control-group horizontal">
                         <label>BPM</label>
-                        <input type="range" id="seq-bpm-range" value="120" min="40" max="300" style="width:100px;">
+                        <input type="range" id="seq-bpm-range" value="120" min="40" max="300" style="width:80px;">
                         <span id="bpm-display" class="led-display">120</span>
                     </div>
 
                     <div class="control-group horizontal">
                         <label>SWING</label>
-                        <input type="range" id="seq-swing" min="0" max="0.75" step="0.05" value="0" style="width:70px;">
+                        <input type="range" id="seq-swing" min="0" max="0.75" step="0.05" value="0" style="width:60px;">
                     </div>
 
                     <div class="control-group horizontal">
                         <label>GATE</label>
-                        <input type="range" id="seq-gate" min="0.1" max="1" step="0.05" value="0.8" style="width:70px;">
+                        <input type="range" id="seq-gate" min="0.1" max="1" step="0.05" value="0.8" style="width:60px;">
                     </div>
 
                     <div class="control-group horizontal">
@@ -492,7 +537,7 @@
                             <input type="checkbox" id="arp-on">
                             <span class="slider round"></span>
                         </label>
-                        <select id="arp-mode" class="preset-dropdown">
+                        <select id="arp-mode" class="preset-dropdown" style="max-width: 86px;">
                             <option value="up">UP</option>
                             <option value="down">DOWN</option>
                             <option value="updown">UP/DOWN (Excl)</option>
@@ -515,7 +560,7 @@
                     <div class="pattern-select-container" style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                         <!-- Pattern 1 Controls -->
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">PAT 1 BANK:</div>
+                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;" title="Pattern 1 bank">P1:</div>
                             <div class="pattern-select radio-group" style="display: flex; gap: 4px;">
                                 <input type="radio" name="track1-bank" id="t1-pat-a" value="0" checked>
                                 <label for="t1-pat-a" class="wave-btn" style="min-width: 25px; height: 20px; line-height: 20px;">A</label>
@@ -526,11 +571,13 @@
                                 <input type="radio" name="track1-bank" id="t1-pat-d" value="3">
                                 <label for="t1-pat-d" class="wave-btn" style="min-width: 25px; height: 20px; line-height: 20px;">D</label>
                             </div>
+                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">LEN:</div>
+                            <select id="pat-len-0" class="preset-dropdown" style="font-size: 0.65rem; padding: 1px 2px;" title="Loop length of this track's bank"></select>
                         </div>
                         
                         <!-- Pattern 2 Controls -->
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">PAT 2 BANK:</div>
+                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;" title="Pattern 2 bank">P2:</div>
                             <div class="pattern-select radio-group" style="display: flex; gap: 4px;">
                                 <input type="radio" name="track2-bank" id="t2-pat-a" value="0">
                                 <label for="t2-pat-a" class="wave-btn" style="min-width: 25px; height: 20px; line-height: 20px;">A</label>
@@ -541,6 +588,8 @@
                                 <input type="radio" name="track2-bank" id="t2-pat-d" value="3">
                                 <label for="t2-pat-d" class="wave-btn" style="min-width: 25px; height: 20px; line-height: 20px;">D</label>
                             </div>
+                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;">LEN:</div>
+                            <select id="pat-len-1" class="preset-dropdown" style="font-size: 0.65rem; padding: 1px 2px;" title="Loop length of this track's bank"></select>
                         </div>
                     </div>
                     
@@ -561,6 +610,20 @@
                         <button class="pattern-mute-btn active" id="pattern-mute-1" title="Mute/Unmute Pattern 2">P2</button>
                     </div>
                     <div class="seq-grid" id="sequencer-steps-1" style="flex: 1;"></div>
+                </div>
+
+                <!-- Song mode: chain of scenes (bank pair + repeats), advances at loop end -->
+                <div class="song-row" style="display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <label style="font-size: 0.65rem; letter-spacing: 1px;">SONG</label>
+                        <label class="switch">
+                            <input type="checkbox" id="song-mode">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <button id="song-add" class="mini-btn" title="Append current bank selection as a new scene">+ ADD</button>
+                    <button id="song-clear" class="mini-btn" title="Clear the song chain">CLEAR</button>
+                    <div id="song-chain" style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;"></div>
                 </div>
             </div>
         </section>

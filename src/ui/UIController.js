@@ -15,6 +15,9 @@ export class UIController {
         return [
             { name: 'polyphony', group: 'master', param: 'polyphony', type: 'radio' },
             { id: 'glide-time', group: 'master', param: 'glide', type: 'range' },
+            { id: 'master-unison', group: 'master', param: 'unison', type: 'range' },
+            { id: 'master-unidetune', group: 'master', param: 'uniDetune', type: 'range' },
+            { id: 'master-spread', group: 'master', param: 'spread', type: 'range' },
             
             { id: 'vco1-on', group: 'vco1', param: 'on', type: 'checkbox' },
             { name: 'vco1-wave', group: 'vco1', param: 'wave', type: 'radio' },
@@ -77,6 +80,7 @@ export class UIController {
             { id: 'dist-drive', group: 'effects', param: 'dist-drive', type: 'range' },
             
             { id: 'delay-on', group: 'effects', param: 'delay-on', type: 'checkbox' },
+            { id: 'delay-sync', group: 'effects', param: 'delay-sync', type: 'select' },
             { id: 'delay-time', group: 'effects', param: 'delay-time', type: 'range' },
             { id: 'delay-fb', group: 'effects', param: 'delay-fb', type: 'range' },
             { id: 'delay-mix', group: 'effects', param: 'delay-mix', type: 'range' },
@@ -93,9 +97,20 @@ export class UIController {
             
             const updateDisplay = () => {
                 let val = parseFloat(slider.value);
+
+                // Log-scaled sliders (data-log-min/max): position 0..1 maps
+                // exponentially — show the mapped value, not the position
+                if (slider.dataset.logMin) {
+                    const lmin = parseFloat(slider.dataset.logMin);
+                    const lmax = parseFloat(slider.dataset.logMax);
+                    display.textContent = Math.round(lmin * Math.pow(lmax / lmin, val));
+                    slider.style.setProperty('--percent', `${val * 100}%`);
+                    return;
+                }
+
                 const max = parseFloat(slider.max);
                 const min = parseFloat(slider.min) || 0;
-                
+
                 if (max > 100) display.textContent = Math.round(val);
                 else if (max <= 2) display.textContent = val.toFixed(2);
                 else display.textContent = val.toFixed(1);
@@ -149,7 +164,7 @@ export class UIController {
                 if (this.isUpdatingUI) return;
 
                 if (this.editStepIndex !== null && lockableGroups.has(binding.group)) {
-                    const bankIdx = this.trackBanks[this.editStepIndex.trackIndex];
+                    const bankIdx = this.sequencer.trackBanks[this.editStepIndex.trackIndex];
                     this.sequencer.setStepLock(this.editStepIndex.stepIndex, binding.group, binding.param, value, bankIdx);
                     el.classList.add('locked');
                     if (binding.type === 'range') {
@@ -193,21 +208,55 @@ export class UIController {
             } else if (binding.type === 'range') {
                 const el = document.getElementById(binding.id);
                 if (el) {
-                    el.addEventListener('input', (e) => handleParamChange(e.target.value, e.target));
+                    el.addEventListener('input', (e) => {
+                        let value = e.target.value;
+                        // Log-scaled sliders report the mapped value, not the position
+                        if (el.dataset.logMin) {
+                            const lmin = parseFloat(el.dataset.logMin);
+                            const lmax = parseFloat(el.dataset.logMax);
+                            value = String(Math.round(lmin * Math.pow(lmax / lmin, parseFloat(value))));
+                        }
+                        handleParamChange(value, e.target);
+                    });
                 }
             }
         });
 
+        // Transport: PLAY toggles play/pause, STOP resets and cuts notes
         const playBtn = document.getElementById('seq-play');
         playBtn.addEventListener('click', () => {
-            // play()/stop() update the button themselves — and play() may refuse
-            // to start while the AudioContext is still suspended
             if (this.sequencer.isPlaying) {
-                this.sequencer.stop();
+                this.sequencer.pause();
             } else {
                 this.sequencer.play();
             }
         });
+
+        const stopBtn = document.getElementById('seq-stop');
+        if (stopBtn) {
+            stopBtn.addEventListener('click', () => this.sequencer.stop());
+        }
+
+        const recBtn = document.getElementById('seq-rec');
+        if (recBtn) {
+            recBtn.addEventListener('click', () => {
+                const on = !this.sequencer.recArmed;
+                this.sequencer.setRecording(on);
+                recBtn.classList.toggle('recording', on);
+            });
+        }
+
+        // Grey out the delay TIME slider while the delay is BPM-synced
+        const delaySyncSel = document.getElementById('delay-sync');
+        if (delaySyncSel) {
+            const dimDelayTime = () => {
+                const dimmed = parseFloat(delaySyncSel.value) > 0;
+                const timeEl = document.getElementById('delay-time');
+                if (timeEl) timeEl.classList.toggle('dimmed', dimmed);
+            };
+            delaySyncSel.addEventListener('change', dimDelayTime);
+            dimDelayTime();
+        }
 
         const bpmRange = document.getElementById('seq-bpm-range');
         const bpmDisplay = document.getElementById('bpm-display');
@@ -233,7 +282,6 @@ export class UIController {
     }
 
     initSequencerGrid() {
-        this.trackBanks = [0, 1]; // Track 1 plays Bank A(0), Track 2 plays Bank B(1)
         const notes = ["C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3", "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5"];
         const noteToMidi = (note) => {
             const notesArr = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -276,17 +324,17 @@ export class UIController {
                         this.toggleEditStep(trackIndex, i);
                     } else if (e.ctrlKey || e.altKey || e.metaKey) {
                         // Toggle accent (303-style velocity boost)
-                        const bankIdx = this.trackBanks[trackIndex];
+                        const bankIdx = this.sequencer.trackBanks[trackIndex];
                         const newAccent = !this.sequencer.patterns[bankIdx][i].accent;
                         this.sequencer.setStepAccent(i, newAccent, bankIdx);
                         btn.classList.toggle('accent', newAccent);
                     } else {
                         btn.classList.toggle('active');
                         const isActive = btn.classList.contains('active');
-                        this.sequencer.setStep(i, isActive, undefined, this.trackBanks[trackIndex]);
+                        this.sequencer.setStep(i, isActive, undefined, this.sequencer.trackBanks[trackIndex]);
                         // If deactivating, also remove tie
                         if (!isActive) {
-                            this.sequencer.setStepTie(i, false, this.trackBanks[trackIndex]);
+                            this.sequencer.setStepTie(i, false, this.sequencer.trackBanks[trackIndex]);
                             btn.classList.remove('tie');
                             btn.parentElement.classList.remove('tie-step');
                         }
@@ -296,7 +344,7 @@ export class UIController {
                 // Right-click on entire column to toggle tie
                 col.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
-                    const bankIdx = this.trackBanks[trackIndex];
+                    const bankIdx = this.sequencer.trackBanks[trackIndex];
                     const stepData = this.sequencer.patterns[bankIdx][i];
                     // Only allow tie on step index > 0
                     if (i === 0) return;
@@ -318,7 +366,7 @@ export class UIController {
                 });
 
                 pitchSelect.addEventListener('change', (e) => {
-                    this.sequencer.setStep(i, undefined, parseInt(e.target.value), this.trackBanks[trackIndex]);
+                    this.sequencer.setStep(i, undefined, parseInt(e.target.value), this.sequencer.trackBanks[trackIndex]);
                     e.target.blur(); // keep focus off the select so typing plays notes again
                 });
 
@@ -331,23 +379,61 @@ export class UIController {
         this.renderTrack(0);
         this.renderTrack(1);
 
-        document.querySelectorAll('input[name="track1-bank"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                const bankIdx = parseInt(e.target.value);
-                this.trackBanks[0] = bankIdx;
-                this.sequencer.setTrackBank(0, bankIdx);
-                this.renderTrack(0);
+        // Bank selection: while playing, switches are quantized to the loop
+        // start — the chosen label blinks until the switch applies.
+        for (let t = 0; t < 2; t++) {
+            document.querySelectorAll(`input[name="track${t + 1}-bank"]`).forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    const bankIdx = parseInt(e.target.value);
+                    const result = this.sequencer.setTrackBank(t, bankIdx);
+                    document.querySelectorAll(`input[name="track${t + 1}-bank"] + label`)
+                        .forEach(l => l.classList.remove('bank-pending'));
+                    if (result === 'queued') {
+                        const label = document.querySelector(`label[for="${e.target.id}"]`);
+                        if (label) label.classList.add('bank-pending');
+                    } else {
+                        this.renderTrack(t);
+                        this.syncLenSelect(t);
+                    }
+                });
             });
-        });
+        }
 
-        document.querySelectorAll('input[name="track2-bank"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                const bankIdx = parseInt(e.target.value);
-                this.trackBanks[1] = bankIdx;
-                this.sequencer.setTrackBank(1, bankIdx);
-                this.renderTrack(1);
+        this.sequencer.onBankApplied = (t) => {
+            document.querySelectorAll(`input[name="track${t + 1}-bank"] + label`)
+                .forEach(l => l.classList.remove('bank-pending'));
+            this.renderTrack(t);
+            this.syncLenSelect(t);
+        };
+
+        // Per-track pattern length (edits the length of the track's current bank)
+        for (let t = 0; t < 2; t++) {
+            const lenSel = document.getElementById(`pat-len-${t}`);
+            if (!lenSel) continue;
+            for (let n = 1; n <= 32; n++) {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = n;
+                lenSel.appendChild(opt);
+            }
+            lenSel.value = this.sequencer.patternLengths[this.sequencer.trackBanks[t]];
+            lenSel.addEventListener('change', (e) => {
+                this.sequencer.setPatternLength(this.sequencer.trackBanks[t], parseInt(e.target.value));
+                this.renderTrack(t);
+                e.target.blur();
             });
-        });
+        }
+
+        this.initSongRow();
+
+        this.sequencer.onRecord = (trackIndex, pos) => {
+            this.renderTrack(trackIndex);
+            const btn = document.getElementById(`step-btn-t${trackIndex}-${pos}`);
+            if (btn) {
+                btn.classList.add('rec-flash');
+                setTimeout(() => btn.classList.remove('rec-flash'), 220);
+            }
+        };
 
         for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
             const muteBtn = document.getElementById(`pattern-mute-${trackIndex}`);
@@ -362,14 +448,114 @@ export class UIController {
 
         this.sequencer.onStep = (step) => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('current'));
-            
+
             if (step >= 0) {
                 for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
-                    const stepBtn = document.getElementById(`step-btn-t${trackIndex}-${step}`);
+                    // Each track loops within its own bank length (polymetric)
+                    const bank = this.sequencer.trackBanks[trackIndex];
+                    const len = this.sequencer.patternLengths[bank];
+                    const stepBtn = document.getElementById(`step-btn-t${trackIndex}-${step % len}`);
                     if (stepBtn) stepBtn.classList.add('current');
                 }
             }
         };
+    }
+
+    syncLenSelect(trackIndex) {
+        const lenSel = document.getElementById(`pat-len-${trackIndex}`);
+        if (lenSel) lenSel.value = this.sequencer.patternLengths[this.sequencer.trackBanks[trackIndex]];
+    }
+
+    initSongRow() {
+        const toggle = document.getElementById('song-mode');
+        const chainEl = document.getElementById('song-chain');
+        const addBtn = document.getElementById('song-add');
+        const clearBtn = document.getElementById('song-clear');
+        if (!toggle || !chainEl) return;
+
+        const bankName = (i) => ['A', 'B', 'C', 'D'][i] || '?';
+
+        const render = () => {
+            chainEl.innerHTML = '';
+            this.sequencer.songChain.forEach((scene, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'song-chip';
+                chip.textContent = `${bankName(scene.banks[0])}${bankName(scene.banks[1])}×${scene.repeats}`;
+                chip.title = 'Scene: banks for track 1+2 · Click: repeats +1 · Right-click: remove';
+                if (this.sequencer.songMode && idx === this.sequencer.songIndex) chip.classList.add('active');
+                chip.addEventListener('click', () => {
+                    scene.repeats = scene.repeats % 8 + 1;
+                    render();
+                });
+                chip.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this.sequencer.songChain.splice(idx, 1);
+                    render();
+                });
+                chainEl.appendChild(chip);
+            });
+        };
+        this.renderSongChain = render;
+
+        toggle.addEventListener('change', (e) => {
+            this.sequencer.setSongMode(e.target.checked);
+            render();
+        });
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                this.sequencer.songChain.push({ banks: [...this.sequencer.trackBanks], repeats: 1 });
+                render();
+            });
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.sequencer.songChain = [];
+                render();
+            });
+        }
+
+        // Song advanced to a new scene: sync bank radios and grids
+        this.sequencer.onSongStep = () => {
+            for (let t = 0; t < 2; t++) {
+                const radio = document.querySelector(`input[name="track${t + 1}-bank"][value="${this.sequencer.trackBanks[t]}"]`);
+                if (radio) radio.checked = true;
+                this.renderTrack(t);
+                this.syncLenSelect(t);
+            }
+            render();
+        };
+        render();
+    }
+
+    // Re-sync the whole sequencer UI after a project was loaded from storage
+    refreshAfterLoad() {
+        for (let t = 0; t < 2; t++) {
+            const radio = document.querySelector(`input[name="track${t + 1}-bank"][value="${this.sequencer.trackBanks[t]}"]`);
+            if (radio) radio.checked = true;
+            const muteBtn = document.getElementById(`pattern-mute-${t}`);
+            if (muteBtn) muteBtn.classList.toggle('active', !this.sequencer.trackMuted[t]);
+            this.renderTrack(t);
+            this.syncLenSelect(t);
+        }
+
+        const bpmRange = document.getElementById('seq-bpm-range');
+        if (bpmRange) {
+            bpmRange.value = this.sequencer.bpm;
+            bpmRange.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const gateRange = document.getElementById('seq-gate');
+        if (gateRange) {
+            gateRange.value = this.sequencer.gate;
+            gateRange.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const timeDivSelect = document.getElementById('seq-timediv');
+        if (timeDivSelect) timeDivSelect.value = this.sequencer.timeDiv;
+
+        const songToggle = document.getElementById('song-mode');
+        if (songToggle) songToggle.checked = this.sequencer.songMode;
+        if (this.renderSongChain) this.renderSongChain();
+
+        this.updateUIFromParams();
     }
 
     renderTrack(trackIndex) {
@@ -379,20 +565,22 @@ export class UIController {
             this.updateUIFromParams();
         }
 
-        const bankIdx = this.trackBanks[trackIndex];
+        const bankIdx = this.sequencer.trackBanks[trackIndex];
         const patternData = this.sequencer.patterns[bankIdx];
-        
+        const len = this.sequencer.patternLengths[bankIdx];
+
         for (let i = 0; i < 32; i++) {
             const btn = document.getElementById(`step-btn-t${trackIndex}-${i}`);
             if (!btn) continue;
             const select = btn.nextElementSibling;
-            
+
             const stepData = patternData[i];
-            
+
             btn.classList.toggle('active', stepData.active);
             btn.classList.toggle('tie', stepData.tie);
             btn.classList.toggle('accent', stepData.accent);
             btn.parentElement.classList.toggle('tie-step', stepData.tie);
+            btn.parentElement.classList.toggle('beyond-length', i >= len);
             select.value = stepData.note;
             btn.classList.remove('edit-mode');
         }
@@ -416,7 +604,7 @@ export class UIController {
         
         let pLocks = null;
         if (this.editStepIndex !== null) {
-            const bankIdx = this.trackBanks[this.editStepIndex.trackIndex];
+            const bankIdx = this.sequencer.trackBanks[this.editStepIndex.trackIndex];
             pLocks = this.sequencer.patterns[bankIdx][this.editStepIndex.stepIndex].locks;
         }
 
@@ -442,7 +630,14 @@ export class UIController {
             } else if (binding.type === 'range' || binding.type === 'select') {
                 const el = document.getElementById(binding.id);
                 if (el) {
-                    el.value = value;
+                    if (el.dataset && el.dataset.logMin) {
+                        // Log-scaled slider: convert the value back to a 0..1 position
+                        const lmin = parseFloat(el.dataset.logMin);
+                        const lmax = parseFloat(el.dataset.logMax);
+                        el.value = Math.log(parseFloat(value) / lmin) / Math.log(lmax / lmin);
+                    } else {
+                        el.value = value;
+                    }
                     el.dispatchEvent(new Event(binding.type === 'range' ? 'input' : 'change'));
                     if (isLocked) {
                         el.classList.add('locked');
@@ -506,6 +701,7 @@ export class UIController {
                 } else {
                     this.synth.playNote(i, this.synth.ctx.currentTime, 0, {}, velocity);
                 }
+                this.sequencer.recordNote(i); // no-op unless REC is armed
                 key.classList.add('active');
                 activeNotes[i] = true;
             });

@@ -65,6 +65,7 @@ export class MidiInput {
         } else {
             this.synth.playNote(note, this.synth.ctx.currentTime, 0, {}, v);
         }
+        this.sequencer.recordNote(note); // no-op unless REC is armed
         this.setKeyVisual(note, true);
     }
 

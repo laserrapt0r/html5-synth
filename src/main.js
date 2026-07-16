@@ -5,6 +5,7 @@ import { UIController } from './ui/UIController.js';
 import { Presets } from './audio/Presets.js';
 import { OscDraw } from './ui/OscDraw.js';
 import { MidiInput } from './MidiInput.js';
+import { Persistence } from './Persistence.js';
 
 let audioContext = null;
 let synth = null;
@@ -13,6 +14,7 @@ let visualizer = null;
 let uiController = null;
 let oscDraw = null;
 let midiInput = null;
+let persistence = null;
 
 audioContext = new (window.AudioContext || window.webkitAudioContext)();
 synth = new Synth(audioContext);
@@ -20,26 +22,100 @@ sequencer = new Sequencer(synth);
 visualizer = new Visualizer(synth);
 uiController = new UIController(synth, sequencer);
 midiInput = new MidiInput(synth, sequencer);
+persistence = new Persistence(synth, sequencer);
 
-// Set default pattern: Funky Town
-const defaultPattern = [0, 2, 4, 6, 10, 14, 16, 18, 20, 22];
-defaultPattern.forEach(i => {
-    document.getElementById(`step-btn-t0-${i}`).click();
-});
-
-// Preset Handling
-document.getElementById('preset-select').addEventListener('change', (e) => {
-    const presetId = e.target.value;
-    const preset = Presets[presetId];
-    if (preset) {
-        for (const [group, params] of Object.entries(preset.params)) {
-            for (const [key, value] of Object.entries(params)) {
-                synth.updateParams(group, key, value);
-            }
+// Apply a full parameter snapshot (factory preset, user patch, or import)
+const applyPatch = (params) => {
+    for (const [group, groupParams] of Object.entries(params)) {
+        for (const [key, value] of Object.entries(groupParams)) {
+            synth.updateParams(group, key, value);
         }
-        uiController.updateUIFromParams();
+    }
+    uiController.updateUIFromParams();
+};
+
+// Restore the previous session; fall back to the default pattern (Funky Town)
+const savedProject = persistence.loadProject();
+if (savedProject) {
+    applyPatch(savedProject.params);
+    if (savedProject.seq) sequencer.loadState(savedProject.seq);
+    uiController.refreshAfterLoad();
+} else {
+    const defaultPattern = [0, 2, 4, 6, 10, 14, 16, 18, 20, 22];
+    defaultPattern.forEach(i => {
+        document.getElementById(`step-btn-t0-${i}`).click();
+    });
+}
+persistence.startAutosave();
+
+// Preset Handling (factory presets + user patches)
+const presetSelect = document.getElementById('preset-select');
+
+const refreshUserPatchOptions = () => {
+    const oldGroup = document.getElementById('user-patch-group');
+    if (oldGroup) oldGroup.remove();
+    const patches = persistence.getUserPatches();
+    const ids = Object.keys(patches);
+    if (ids.length === 0) return;
+    const group = document.createElement('optgroup');
+    group.id = 'user-patch-group';
+    group.label = 'USER PATCHES';
+    ids.forEach(id => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = patches[id].name;
+        group.appendChild(opt);
+    });
+    presetSelect.appendChild(group);
+};
+refreshUserPatchOptions();
+
+presetSelect.addEventListener('change', (e) => {
+    const id = e.target.value;
+    if (id.startsWith('user:')) {
+        const patch = persistence.getUserPatches()[id];
+        if (patch) applyPatch(patch.params);
+    } else {
+        const preset = Presets[id];
+        if (preset) applyPatch(preset.params);
     }
     e.target.blur(); // Remove focus so typing doesn't accidentally change presets
+});
+
+// Patch save/delete and project export/import
+document.getElementById('patch-save').addEventListener('click', () => {
+    const name = window.prompt('Patch name:');
+    if (!name || !name.trim()) return;
+    const id = persistence.saveUserPatch(name.trim());
+    refreshUserPatchOptions();
+    presetSelect.value = id;
+});
+
+document.getElementById('patch-delete').addEventListener('click', () => {
+    const id = presetSelect.value;
+    if (!id.startsWith('user:')) return;
+    if (!window.confirm('Delete this user patch?')) return;
+    persistence.deleteUserPatch(id);
+    refreshUserPatchOptions();
+    presetSelect.value = 'init';
+});
+
+document.getElementById('patch-export').addEventListener('click', () => persistence.exportProject());
+
+const importInput = document.getElementById('patch-file');
+document.getElementById('patch-import').addEventListener('click', () => importInput.click());
+importInput.addEventListener('change', async () => {
+    const file = importInput.files && importInput.files[0];
+    if (!file) return;
+    const data = persistence.importProjectData(await file.text());
+    if (data) {
+        applyPatch(data.params);
+        if (data.seq) sequencer.loadState(data.seq);
+        uiController.refreshAfterLoad();
+        refreshUserPatchOptions();
+        persistence.saveProject();
+    }
+    importInput.value = '';
 });
 
 // Custom Osc Logic

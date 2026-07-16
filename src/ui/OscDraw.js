@@ -145,9 +145,11 @@ export class OscDraw {
         if (this.synth.params.vco1.wave === 'custom') {
             const customWave = this.synth.ctx.createPeriodicWave(real, imag);
             Object.values(this.synth.activeVoices).forEach(voice => {
-                if (voice.vco1Osc) {
-                    voice.vco1Osc.setPeriodicWave(customWave);
-                }
+                [voice, ...voice.unisonSiblings].forEach(v => {
+                    if (v.vco1Osc) {
+                        v.vco1Osc.setPeriodicWave(customWave);
+                    }
+                });
             });
             if (this.synth.monoVoice && this.synth.monoVoice.vco1Osc) {
                 this.synth.monoVoice.vco1Osc.setPeriodicWave(customWave);

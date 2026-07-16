@@ -30,6 +30,22 @@ export class Sequencer {
         
         this.trackBanks = [0, 1]; // Pattern 1 plays Bank A(0), Pattern 2 plays Bank B(1)
         this.trackMuted = [false, false]; // Mute state per pattern
+        this.patternLengths = [32, 32, 32, 32]; // per-bank loop length (1..32)
+        this.pendingTrackBanks = [null, null]; // bank switches queued to the loop start
+
+        // Song mode: a chain of scenes [{banks:[a,b], repeats:n}]
+        this.songMode = false;
+        this.songChain = [];
+        this.songIndex = 0;
+        this.songLoopCount = 0;
+        this._songFirst = true;
+
+        // Arpeggiator key state (physically held keys, for latch handling)
+        this.heldArpKeys = new Set();
+
+        // Recording
+        this.recArmed = false;
+        this.recCursor = 0;
 
         // Timing scheduling
         this.lookahead = 25.0; // ms
@@ -37,12 +53,73 @@ export class Sequencer {
         this.nextNoteTime = 0.0;
         this.timerID = null;
 
-        // Callback for UI updates
+        // Callbacks for UI updates
         this.onStep = null;
+        this.onBankApplied = null; // (trackIndex, bankIdx) after a queued switch applies
+        this.onSongStep = null; // (songIndex) when the song advances to a scene
+        this.onRecord = null; // (trackIndex, stepPos) after a note was recorded
+
+        // Background tabs throttle timers to >= 1s — schedule further ahead
+        // there so playback doesn't stutter when the tab is hidden.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.scheduleAheadTime = 1.5;
+                this.lookahead = 400;
+            } else {
+                this.scheduleAheadTime = 0.1;
+                this.lookahead = 25.0;
+            }
+        });
     }
 
     setBpm(bpm) {
         this.bpm = bpm;
+        this.synth.bpm = parseFloat(bpm) || 120;
+        // Re-apply a BPM-synced delay time
+        if (parseFloat(this.synth.params.effects['delay-sync']) > 0) {
+            this.synth.updateParams('effects', 'delay-time', this.synth.params.effects['delay-time']);
+        }
+    }
+
+    setPatternLength(bankIndex, length) {
+        this.patternLengths[bankIndex] = Math.max(1, Math.min(this.numSteps, parseInt(length) || this.numSteps));
+    }
+
+    setSongMode(on) {
+        this.songMode = !!on;
+        this.songIndex = 0;
+        this.songLoopCount = 0;
+        this._songFirst = true;
+    }
+
+    setRecording(on) {
+        this.recArmed = !!on;
+        if (!on) this.recCursor = 0;
+    }
+
+    // Write a played note into track 1's current bank: quantized to the
+    // audible step while playing, step-entry (advancing cursor) while stopped.
+    recordNote(note) {
+        if (!this.recArmed) return;
+        const bankIdx = this.trackBanks[0];
+        const len = this.patternLengths[bankIdx];
+        let pos;
+        if (this.isPlaying) {
+            const stepDuration = this.timeDiv * (60.0 / this.bpm);
+            // currentStep is the next step to be scheduled; walk back to the audible one
+            const ahead = (this.nextNoteTime - this.ctx.currentTime) / stepDuration;
+            pos = Math.round(this.currentStep - ahead) % this.numSteps;
+            if (pos < 0) pos += this.numSteps;
+            pos = pos % len;
+        } else {
+            pos = this.recCursor % len;
+            this.recCursor = (this.recCursor + 1) % len;
+        }
+        const step = this.patterns[bankIdx][pos];
+        step.active = true;
+        step.note = note;
+        step.tie = false;
+        if (this.onRecord) this.onRecord(0, pos);
     }
 
     setGate(value) {
@@ -78,8 +155,15 @@ export class Sequencer {
         this.currentEditPattern = patternIndex;
     }
 
+    // While playing, bank switches are quantized to the next loop start
+    // (like pattern changes on hardware sequencers). Returns 'queued' or 'applied'.
     setTrackBank(trackIndex, bankIndex) {
+        if (this.isPlaying) {
+            this.pendingTrackBanks[trackIndex] = bankIndex;
+            return 'queued';
+        }
         this.trackBanks[trackIndex] = bankIndex;
+        return 'applied';
     }
 
     setTrackMuted(trackIndex, muted) {
@@ -87,6 +171,13 @@ export class Sequencer {
     }
 
     addArpNote(note, velocity = 1) {
+        // Latch: a fresh chord (all previous keys released) replaces the old one
+        if (this.synth.params.master.arpLatch && this.heldArpKeys.size === 0 && this.arpNotes.length > 0) {
+            this.arpNotes = [];
+            this.arpVelocities = {};
+        }
+        if (this.arpNotes.length === 0) this.arpIndex = 0; // new phrase starts at its first note
+        this.heldArpKeys.add(note);
         if (!this.arpNotes.includes(note)) {
             this.arpNotes.push(note);
         }
@@ -98,6 +189,7 @@ export class Sequencer {
     }
 
     removeArpNote(note) {
+        this.heldArpKeys.delete(note);
         if (this.synth.params.master.arpLatch) return;
         this.arpNotes = this.arpNotes.filter(n => n !== note);
         delete this.arpVelocities[note];
@@ -110,6 +202,8 @@ export class Sequencer {
     clearArpNotes() {
         this.arpNotes = [];
         this.arpVelocities = {};
+        this.heldArpKeys.clear();
+        this.arpIndex = 0;
         if (this.autoStartedByArp) {
             this.stop();
             this.autoStartedByArp = false;
@@ -127,9 +221,9 @@ export class Sequencer {
     }
 
     // Count how many consecutive tie steps follow a given step in a pattern
-    _countTieChain(bankIdx, stepNumber) {
+    _countTieChain(bankIdx, stepNumber, len = this.numSteps) {
         let count = 0;
-        for (let i = stepNumber + 1; i < this.numSteps; i++) {
+        for (let i = stepNumber + 1; i < len; i++) {
             if (this.patterns[bankIdx][i].tie) {
                 count++;
             } else {
@@ -139,7 +233,40 @@ export class Sequencer {
         return count;
     }
 
+    // Song scenes and queued bank switches apply at the loop boundary
+    _applyQueuedBanks() {
+        if (this.songMode && this.songChain.length > 0) {
+            if (this._songFirst) {
+                this._songFirst = false;
+            } else {
+                this.songLoopCount++;
+                const current = this.songChain[this.songIndex];
+                if (this.songLoopCount >= (current ? current.repeats : 1)) {
+                    this.songLoopCount = 0;
+                    this.songIndex = (this.songIndex + 1) % this.songChain.length;
+                }
+            }
+            const scene = this.songChain[this.songIndex];
+            if (scene) {
+                this.trackBanks[0] = scene.banks[0];
+                this.trackBanks[1] = scene.banks[1];
+                if (this.onSongStep) this.onSongStep(this.songIndex);
+            }
+        }
+        for (let t = 0; t < 2; t++) {
+            if (this.pendingTrackBanks[t] !== null) {
+                this.trackBanks[t] = this.pendingTrackBanks[t];
+                this.pendingTrackBanks[t] = null;
+                if (this.onBankApplied) this.onBankApplied(t, this.trackBanks[t]);
+            }
+        }
+    }
+
     scheduleNote(stepNumber, time) {
+        if (stepNumber === 0) {
+            this._applyQueuedBanks();
+        }
+
         const secondsPerBeat = 60.0 / this.bpm;
         const stepDuration = this.timeDiv * secondsPerBeat;
         
@@ -237,21 +364,34 @@ export class Sequencer {
                 const bankIdx = this.trackBanks[trackIndex];
                 if (playedBanks.has(bankIdx)) continue;
                 playedBanks.add(bankIdx);
-                if (bankIdx >= 0 && bankIdx < this.numPatterns) {
-                    const stepData = this.patterns[bankIdx][stepNumber];
-                    
-                    // Skip tie steps — they extend the previous note, not trigger a new one
-                    if (stepData.tie) continue;
-                    
-                    if (stepData.active) {
-                        // Count tie chain to extend gate duration
-                        const tieCount = this._countTieChain(bankIdx, stepNumber);
-                        const totalSteps = 1 + tieCount;
-                        const gateDuration = (stepDuration * totalSteps) * this.gate;
-                        
-                        this.synth.playNote(stepData.note, scheduledTime, gateDuration, stepData.locks,
-                            stepData.accent ? ACCENT_VELOCITY : 1);
+                if (bankIdx < 0 || bankIdx >= this.numPatterns) continue;
+
+                // Each bank loops within its own length (polymetric tracks)
+                const len = this.patternLengths[bankIdx];
+                const pos = stepNumber % len;
+                const stepData = this.patterns[bankIdx][pos];
+
+                if (stepData.tie) {
+                    // Tie with a different pitch = 303-style slide on the sounding note
+                    if (pos === 0) continue;
+                    let headPos = pos - 1;
+                    while (headPos > 0 && this.patterns[bankIdx][headPos].tie) headPos--;
+                    const head = this.patterns[bankIdx][headPos];
+                    const prev = this.patterns[bankIdx][pos - 1];
+                    if (head.active && !head.tie && stepData.note !== prev.note) {
+                        this.synth.slideNote(head.note, stepData.note, scheduledTime);
                     }
+                    continue;
+                }
+
+                if (stepData.active) {
+                    // Count tie chain to extend gate duration
+                    const tieCount = this._countTieChain(bankIdx, pos, len);
+                    const totalSteps = 1 + tieCount;
+                    const gateDuration = (stepDuration * totalSteps) * this.gate;
+
+                    this.synth.playNote(stepData.note, scheduledTime, gateDuration, stepData.locks,
+                        stepData.accent ? ACCENT_VELOCITY : 1);
                 }
             }
         }
@@ -273,35 +413,91 @@ export class Sequencer {
         this.timerID = setTimeout(() => this.scheduler(), this.lookahead);
     }
 
+    _updateTransportUI() {
+        const playBtn = document.getElementById('seq-play');
+        if (playBtn) {
+            playBtn.textContent = this.isPlaying ? 'PAUSE' : 'PLAY';
+            playBtn.classList.toggle('playing', this.isPlaying);
+        }
+    }
+
+    // PLAY resumes from the current position (after pause) or from the top (after stop)
     play() {
         if (this.isPlaying) return;
         // Don't start while the AudioContext is suspended (before INIT AUDIO) —
         // scheduled steps would pile up and burst out on resume.
         if (this.ctx.state !== 'running') return;
         this.isPlaying = true;
-        this.currentStep = 0;
         this.nextNoteTime = this.ctx.currentTime + 0.05; // start shortly after
         this.scheduler();
-        
-        const playBtn = document.getElementById('seq-play');
-        if (playBtn) {
-            playBtn.textContent = 'STOP';
-            playBtn.classList.add('playing');
-        }
+        this._updateTransportUI();
     }
 
-    stop() {
+    // PAUSE keeps the position; PLAY continues where it left off
+    pause() {
         if (!this.isPlaying) return;
+        this.isPlaying = false;
+        clearTimeout(this.timerID);
+        this._updateTransportUI();
+    }
+
+    // STOP resets to the top, cuts ringing notes and clears queued switches
+    stop() {
         this.isPlaying = false;
         this.autoStartedByArp = false;
         clearTimeout(this.timerID);
         this.currentStep = 0;
-        
-        const playBtn = document.getElementById('seq-play');
-        if (playBtn) {
-            playBtn.textContent = 'PLAY';
-            playBtn.classList.remove('playing');
+        this.songIndex = 0;
+        this.songLoopCount = 0;
+        this._songFirst = true;
+        this.pendingTrackBanks = [null, null];
+        this.synth.stopAllNotes();
+        this._updateTransportUI();
+        if (this.onStep) this.onStep(-1);
+    }
+
+    // --- Persistence ---
+
+    serialize() {
+        return {
+            patterns: this.patterns,
+            patternLengths: [...this.patternLengths],
+            trackBanks: [...this.trackBanks],
+            trackMuted: [...this.trackMuted],
+            bpm: this.bpm,
+            gate: this.gate,
+            timeDiv: this.timeDiv,
+            songMode: this.songMode,
+            songChain: this.songChain
+        };
+    }
+
+    loadState(state) {
+        if (!state) return;
+        if (Array.isArray(state.patterns)) {
+            state.patterns.forEach((pat, b) => {
+                if (b >= this.numPatterns || !Array.isArray(pat)) return;
+                pat.forEach((step, i) => {
+                    if (i >= this.numSteps || !step) return;
+                    this.patterns[b][i] = {
+                        active: !!step.active,
+                        note: typeof step.note === 'number' ? step.note : 60,
+                        tie: !!step.tie,
+                        accent: !!step.accent,
+                        locks: step.locks || {}
+                    };
+                });
+            });
         }
-        if (this.onStep) this.onStep(-1, this.currentEditPattern);
+        if (Array.isArray(state.patternLengths)) {
+            this.patternLengths = state.patternLengths.map(l => Math.max(1, Math.min(this.numSteps, parseInt(l) || this.numSteps)));
+        }
+        if (Array.isArray(state.trackBanks)) this.trackBanks = [...state.trackBanks];
+        if (Array.isArray(state.trackMuted)) this.trackMuted = [...state.trackMuted];
+        if (state.bpm) this.setBpm(state.bpm);
+        if (state.gate) this.gate = parseFloat(state.gate);
+        if (state.timeDiv) this.timeDiv = parseFloat(state.timeDiv);
+        this.songMode = !!state.songMode;
+        this.songChain = Array.isArray(state.songChain) ? state.songChain : [];
     }
 }

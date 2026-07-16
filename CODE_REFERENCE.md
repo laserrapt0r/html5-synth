@@ -63,6 +63,7 @@ Noise ──► noiseGain ┘
 | `css/style.css` | Neon styling, power-off state, step/accent/tie/edit-mode visuals |
 | `src/main.js` | Bootstrapping, power-on (AudioContext resume), preset loading, computer-keyboard input, UI scaling |
 | `src/MidiInput.js` | Web MIDI note input with velocity |
+| `src/Persistence.js` | localStorage autosave (project state), user patches, JSON export/import |
 | `src/audio/Synth.js` | Voice management, global LFOs, parameter store (`params`), effects wiring |
 | `src/audio/Voice.js` | One playing note: oscillators, filter, envelopes, PWM, noise, cleanup |
 | `src/audio/Effects.js` | Distortion → Delay → Reverb chain with per-effect bypass |
@@ -81,7 +82,8 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
 
 ```js
 {
-  master:  { polyphony: 'poly'|'mono'|'legato', glide, swing, arpOn, arpMode, arpLatch, arpOctaves },
+  master:  { polyphony: 'poly'|'mono'|'legato', glide, swing, arpOn, arpMode, arpLatch, arpOctaves,
+             unison (1-3), uniDetune (cents), spread (0..1 stereo width) },
   vco1:    { on, wave, oct, tune, level, pw, pwm, customWaveReal, customWaveImag },
   vco2:    { on, wave, oct, tune, level },
   vco3:    { on, wave, oct, tune, level },
@@ -92,7 +94,7 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
   pEnv:    { d, amt },                   // pitch envelope (amt in semitones ±48, decay-only)
   lfo1:    { wave, rate, pitch, cutoff },// wave 'random' = S&H mode
   lfo2:    { wave, rate, amp },
-  effects: { 'dist-on', 'dist-drive', 'delay-on', 'delay-time', 'delay-fb', 'delay-mix',
+  effects: { 'dist-on', 'dist-drive', 'delay-on', 'delay-sync' (0=free, else beats), 'delay-time', 'delay-fb', 'delay-mix',
              'reverb-on', 'reverb-mix' }
 }
 ```
@@ -105,7 +107,8 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
 
 - `note` — MIDI note number.
 - `tie` — this step extends the previous note instead of triggering; chains of ties
-  multiply the gate duration of the first (non-tie) step.
+  multiply the gate duration of the first (non-tie) step. A tie step whose `note` differs
+  from the previous chain element triggers a 303-style **slide** (`Synth.slideNote`).
 - `accent` — plays the step with `ACCENT_VELOCITY` (1.25): louder and with a wider filter sweep.
 - `locks` — P-Locks: `{ "group.param": value }`, e.g. `{ "filter.cutoff": "400" }`.
   Applied per note via `Voice.getParam`, which prefers a lock over `Synth.params`.
@@ -131,12 +134,15 @@ bank it is only triggered once.
 | Member | Description |
 |---|---|
 | `constructor(audioContext)` | Builds master chain, effects, both LFOs (initialised from `params`) |
-| `playNote(note, time, duration=0, pLocks={}, velocity=1)` | Creates/updates a voice. Poly: steals the oldest voice above `maxVoices` (8). Mono/Legato: reuses `monoVoice` with glide; Mono retriggers envelopes, Legato doesn't. No-op while the context is suspended |
-| `stopNote(note, time)` | Releases the matching voice (mono: only if it's the current note) |
+| `playNote(note, time, duration=0, pLocks={}, velocity=1)` | Creates/updates a voice group. Poly: spawns `unison` voices (detuned/panned), steals the oldest note above the voice limit. Mono/Legato: reuses `monoVoice` with glide; Mono retriggers envelopes click-free, Legato doesn't. Held keys (duration 0) feed the mono note memory. No-op while suspended |
+| `stopNote(note, time)` | Releases the matching voice group; in mono, falls back legato to the most recent still-held key (note memory) |
+| `slideNote(fromNote, toNote, time)` | 303-style slide: glides the sounding voice (incl. unison siblings) without retriggering — used by tie steps with a different pitch |
 | `stopAllNotes()` | Panic — releases everything |
 | `updateParams(module, key, value)` | Single entry point for all parameter changes; updates the audio graph and live voices (batched via microtask-style `setTimeout`) |
 | `updateLFO1()` / `updateLFO2()` | Re-apply LFO wave/rate/depths; manage the S&H timer for `random` mode |
 | `_connectLFOs(voice)` | Connects global LFO gains into a voice and records the connections on `voice.externalConnections` for later cleanup |
+| `_stopVoiceGroup(voice, time)` | Stops a primary voice together with its unison siblings |
+| `bpm` | Tempo mirror (set by the Sequencer) used to compute BPM-synced delay times (`effects['delay-sync']` in beats) |
 
 ### `Voice` (`src/audio/Voice.js`)
 
@@ -148,7 +154,9 @@ One instance per sounding note. Noise buffers are generated once per AudioContex
 | `start(freq, time, pLocks={}, velocity=1)` | Creates oscillators, applies params, starts envelopes |
 | `stop(time)` | Computes the current envelope value manually (browser-bug workaround), schedules release, then `disconnect()` |
 | `disconnect()` | Severs all node connections **including** the incoming LFO connections (`externalConnections`) — without this, voices leak |
-| `updateParams(skipFrequency=false)` | Re-applies all voice params; `skipFrequency` is used by the mono glide path so the glide automation isn't overwritten |
+| `updateParams(skipFrequency=false)` | Re-applies all voice params (smoothed after the first application); re-targets the filter towards the new sustain frequency when cutoff/res/env change on a sounding note (live cutoff); `skipFrequency` is used by the mono glide path |
+| `glideTo(freq, time, glideTime)` | Slides the sounding pitch (anchored on the last target so scheduled slide chains stay consistent) |
+| `panner` | Per-voice `StereoPannerNode` (Synth connects `panner → effects.input`); `unisonDetune`/`unisonSiblings` carry the unison stack |
 | `getParam(group, key)` | P-Lock-aware parameter read |
 | `triggerAmpEnvelope(time)` / `triggerFilterEnvelope(time)` | ADSR via `linearRamp` (attack) + `setTargetAtTime` (decay/sustain), scaled by `velocity` |
 | `triggerPitchEnvelope(time)` | Decay-only pitch sweep: a per-voice `ConstantSource` (`pitchEnvSource`, in cents) summed into `pitchTarget`, so it detunes all three VCOs without touching the glide automation |
@@ -165,11 +173,16 @@ within the next 100 ms (`scheduleAheadTime`) at sample-accurate AudioContext tim
 
 | Member | Description |
 |---|---|
-| `play()` / `stop()` | Transport; refuses to start while the context is suspended |
-| `scheduleNote(step, time)` | Applies swing (odd steps), resolves ties into longer gates, triggers both tracks or the arpeggiator |
+| `play()` / `pause()` / `stop()` | Play resumes from the current position, Pause keeps it, Stop resets to step 1, cuts ringing notes and clears queued switches; refuses to start while suspended |
+| `scheduleNote(step, time)` | Applies queued bank switches/song scenes at step 0, swing on odd steps, resolves ties into longer gates and slides, triggers both tracks (each looping within its bank's `patternLengths` — polymetric) or the arpeggiator |
 | `setStep / setStepTie / setStepAccent / setStepLock` | Pattern editing API (all take an optional bank index) |
 | `addArpNote(note, velocity=1)` / `removeArpNote` / `clearArpNotes` | Arp note pool; auto-starts/stops the transport when the arp is enabled; velocities are kept per held key |
-| `setBpm / setGate / setTimeDiv / setTrackBank / setTrackMuted` | Transport & routing settings |
+| `setBpm / setGate / setTimeDiv / setTrackMuted` | Transport & routing settings (BPM also re-syncs the delay) |
+| `setTrackBank(track, bank)` | Quantized while playing (returns `'queued'`), immediate otherwise |
+| `setPatternLength(bank, len)` | Loop length 1–32 per bank |
+| `setSongMode / songChain` | Song scenes `{banks:[a,b], repeats}` applied at loop boundaries |
+| `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized into track 1's bank while playing |
+| `serialize()` / `loadState(state)` | Project persistence (patterns, lengths, banks, mutes, transport, song) |
 | `onStep(step)` | UI callback (step indicator), `-1` on stop |
 
 Arp modes are computed per step from the held notes (sorted/expanded to `arpOctaves`):
@@ -226,4 +239,11 @@ permission prompt is tied to a user gesture.
 - **Keyboard input uses `e.code`** (physical position) so note keys work on QWERTZ/AZERTY;
   labels are corrected via the Keyboard Layout Map API or on first keypress.
 - **Scheduling:** anything audible must be scheduled with AudioContext time (`scheduledTime`),
-  never `setTimeout` — timeouts are only used for UI callbacks and cleanup.
+  never `setTimeout` — timeouts are only used for UI callbacks and cleanup. Hidden tabs raise
+  `scheduleAheadTime` to 1.5 s because browsers throttle timers there.
+- **Persistence:** the whole project (params + sequencer state) autosaves to localStorage every
+  few seconds and on unload (`src/Persistence.js`); user patches live under a separate key.
+  New state that should survive a reload must be included in `Sequencer.serialize()`.
+- **Parameter smoothing:** long-lived AudioParams are changed via `cancelScheduledValues` +
+  `setTargetAtTime` (see `_smooth`/`_smoothSet` helpers) — don't reintroduce raw `.value` jumps
+  on audible paths.

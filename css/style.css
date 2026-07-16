@@ -582,8 +582,9 @@ input:checked + .slider.round:before {
 }
 
 .step-col.tie-step .step-pitch {
-    opacity: 0.2;
-    pointer-events: none;
+    /* Pitch of a tie step is the slide target — keep it editable, tinted cyan */
+    color: var(--neon-cyan);
+    opacity: 0.85;
 }
 
 /* Buttons */
@@ -947,4 +948,90 @@ body.powered-on .glow-btn.playing {
     75% { filter: brightness(1.03); }
     85% { filter: brightness(0.95); }
     100% { filter: brightness(1.02); }
+}
+
+
+/* --- Mini buttons (patch save/export, song controls) --- */
+.mini-btn {
+    background: #0a0c11;
+    border: 1px solid #2a2f3e;
+    border-radius: 3px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    padding: 3px 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.mini-btn:hover {
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 5px rgba(0, 243, 255, 0.3);
+}
+
+/* --- Transport --- */
+.stop-btn, .rec-btn {
+    min-width: 50px;
+}
+.rec-btn.recording {
+    color: #ff2a2a !important;
+    border-color: #ff2a2a !important;
+    box-shadow: 0 0 12px rgba(255, 42, 42, 0.6) !important;
+    animation: rec-pulse 1s infinite alternate;
+}
+@keyframes rec-pulse {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+}
+.step-btn.rec-flash {
+    background: rgba(255, 42, 42, 0.4) !important;
+    border-color: #ff2a2a !important;
+}
+
+/* --- Quantized bank switch pending --- */
+.wave-btn.bank-pending {
+    animation: bank-blink 0.5s infinite alternate;
+}
+@keyframes bank-blink {
+    from { background: rgba(255, 234, 0, 0.05); color: var(--text-muted); }
+    to { background: rgba(255, 234, 0, 0.35); color: var(--neon-yellow); }
+}
+
+/* --- Steps beyond the bank's loop length --- */
+.step-col.beyond-length {
+    opacity: 0.25;
+}
+
+/* --- Song mode --- */
+.song-row {
+    border-top: 1px solid #1a1f2e;
+    padding-top: 6px;
+    min-height: 30px;
+}
+.song-chip {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    color: var(--neon-cyan);
+    background: rgba(0, 243, 255, 0.07);
+    border: 1px solid #2a2f3e;
+    border-radius: 3px;
+    padding: 2px 7px;
+    cursor: pointer;
+    user-select: none;
+}
+.song-chip:hover {
+    border-color: var(--neon-cyan);
+}
+.song-chip.active {
+    color: var(--neon-lime);
+    border-color: var(--neon-lime);
+    box-shadow: 0 0 6px rgba(57, 255, 20, 0.4);
+}
+
+/* --- BPM-synced delay dims the free time slider --- */
+input[type="range"].dimmed {
+    opacity: 0.3;
+    pointer-events: none;
 }

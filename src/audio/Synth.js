@@ -23,7 +23,7 @@ export class Synth {
 
         // Global Parameters
         this.params = {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up' },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', unison: 1, uniDetune: 12, spread: 0 },
             vco1: { on: true, wave: 'sawtooth', oct: 0, tune: 0, level: 0.8, pw: 0.5, pwm: 0, customWaveReal: null, customWaveImag: null },
             vco2: { on: true, wave: 'square', oct: -1, tune: 7, level: 0.6 },
             vco3: { on: true, wave: 'sine', oct: 1, tune: -7, level: 0.4 },
@@ -34,18 +34,23 @@ export class Synth {
             pEnv: { d: 0.1, amt: 0 },
             lfo1: { wave: 'sine', rate: 5, pitch: 0, cutoff: 0 },
             lfo2: { wave: 'sine', rate: 2, amp: 0 },
-            effects: { 
+            effects: {
                 'dist-on': false, 'dist-drive': 0,
-                'delay-on': false, 'delay-time': 0.3, 'delay-fb': 0.4, 'delay-mix': 0.3,
+                'delay-on': false, 'delay-sync': 0, 'delay-time': 0.3, 'delay-fb': 0.4, 'delay-mix': 0.3,
                 'reverb-on': false, 'reverb-mix': 0.2
             }
         };
 
+        // Tempo mirror (set by the Sequencer) for BPM-synced delay times
+        this.bpm = 120;
+
         // Voice Management
         this.maxVoices = 8;
-        this.activeVoices = {}; // key: note string, value: Voice instance
+        this.activeVoices = {}; // key: note string, value: primary Voice (unison siblings attached)
         this.monoVoice = null;
+        this.heldNotes = []; // mono/legato note memory (physically held keys, in press order)
         this.lastNoteTime = 0;
+        this._panFlip = false;
 
         // LFO 1
         this.lfo1 = this.ctx.createOscillator();
@@ -113,9 +118,15 @@ export class Synth {
         const freq = this.noteToFreq(note);
 
         if (this.params.master.polyphony === 'poly') {
-            // Polyphonic Mode — enforce the voice limit by stealing the oldest voice
+            // Polyphonic Mode
+            const unison = Math.max(1, Math.min(3, parseInt(this.params.master.unison) || 1));
+            const uniDetune = parseFloat(this.params.master.uniDetune) || 0;
+            const spread = parseFloat(this.params.master.spread) || 0;
+
+            // Enforce the voice limit (unison siblings count) by stealing the oldest note
+            const effectiveMax = Math.max(2, Math.floor(this.maxVoices / unison));
             const entries = Object.entries(this.activeVoices);
-            if (entries.length >= this.maxVoices) {
+            if (entries.length >= effectiveMax) {
                 let oldestNote = null;
                 let oldestVoice = null;
                 for (const [n, v] of entries) {
@@ -124,26 +135,41 @@ export class Synth {
                         oldestNote = n;
                     }
                 }
-                oldestVoice.stop(time);
+                this._stopVoiceGroup(oldestVoice, time);
                 delete this.activeVoices[oldestNote];
             }
 
-            const voice = new Voice(this.ctx, this.params);
-            voice.startTime = time;
+            // Alternate the stereo side per note so the spread fills the field
+            this._panFlip = !this._panFlip;
+            const noteSide = this._panFlip ? 1 : -1;
 
-            this._connectLFOs(voice);
+            const group = [];
+            for (let u = 0; u < unison; u++) {
+                const v = new Voice(this.ctx, this.params);
+                v.startTime = time;
+                if (unison > 1) {
+                    const rel = (u / (unison - 1)) * 2 - 1; // -1 .. +1 across the stack
+                    v.unisonDetune = rel * uniDetune;
+                    v.panner.pan.value = rel * spread;
+                } else {
+                    v.panner.pan.value = noteSide * spread * 0.7;
+                }
+                this._connectLFOs(v);
+                v.panner.connect(this.effects.input);
+                v.start(freq, time, pLocks, velocity);
+                group.push(v);
+            }
+            const voice = group[0];
+            voice.unisonSiblings = group.slice(1);
 
-            voice.output.connect(this.effects.input);
-            voice.start(freq, time, pLocks, velocity);
-            
             // Store voice to manage note-off
             if (this.activeVoices[note]) {
-                this.activeVoices[note].stop(time); // Stop old voice if same note triggered
+                this._stopVoiceGroup(this.activeVoices[note], time); // Stop old voice if same note triggered
             }
             this.activeVoices[note] = voice;
-            
+
             if (duration > 0) {
-                voice.stop(time + duration);
+                this._stopVoiceGroup(voice, time + duration);
                 setTimeout(() => {
                     if (this.activeVoices[note] === voice) {
                         delete this.activeVoices[note];
@@ -151,29 +177,36 @@ export class Synth {
                 }, (duration + parseFloat(this.params.aEnv.r)) * 1000);
             }
         } else {
-            // Mono / Legato Mode
+            // Mono / Legato Mode — held keys (duration 0) feed the note memory
+            if (duration === 0) {
+                this.heldNotes = this.heldNotes.filter(n => n !== note);
+                this.heldNotes.push(note);
+            }
             this.currentMonoNote = note;
             if (!this.monoVoice || !this.monoVoice.isActive || this.monoVoice.isStopping) {
                 this.monoVoice = new Voice(this.ctx, this.params);
                 this.monoVoice.startTime = time;
                 this._connectLFOs(this.monoVoice);
-                this.monoVoice.output.connect(this.effects.input);
+                this.monoVoice.panner.connect(this.effects.input);
                 this.monoVoice.start(freq, time, pLocks, velocity);
             } else {
                 // Glide / Legato
                 const glideTime = parseFloat(this.params.master.glide);
 
+                // Take over the new step's parameter locks first — the envelope
+                // triggers below must already see them
+                this.monoVoice.pLocks = pLocks || {};
+
                 // Retrigger envelopes if Mono, don't retrigger if Legato
                 // (legato keeps the first note's velocity, like real mono synths)
                 if (this.params.master.polyphony === 'mono') {
+                    const prevLevel = this.monoVoice._ampEnvValueAt(time); // with the old velocity
                     this.monoVoice.velocity = velocity;
-                    this.monoVoice.triggerAmpEnvelope(time);
+                    this.monoVoice.triggerAmpEnvelope(time, prevLevel);
                     this.monoVoice.triggerFilterEnvelope(time);
                     this.monoVoice.triggerPitchEnvelope(time);
                 }
 
-                // Take over the new step's parameter locks (frequency is glided below)
-                this.monoVoice.pLocks = pLocks || {};
                 this.monoVoice.noteFrequency = freq;
                 this.monoVoice.updateParams(true);
 
@@ -196,27 +229,55 @@ export class Synth {
         }
     }
 
+    // Stop a primary voice together with its unison siblings
+    _stopVoiceGroup(voice, time) {
+        voice.stop(time);
+        voice.unisonSiblings.forEach(s => s.stop(time));
+    }
+
     stopNote(note, time) {
         if (this.params.master.polyphony === 'poly') {
             if (this.activeVoices[note]) {
-                this.activeVoices[note].stop(time);
+                this._stopVoiceGroup(this.activeVoices[note], time);
                 delete this.activeVoices[note];
             }
         } else {
+            this.heldNotes = this.heldNotes.filter(n => n !== note);
             if (this.monoVoice && this.currentMonoNote === note) {
-                this.monoVoice.stop(time);
+                if (this.heldNotes.length > 0) {
+                    // Note memory: fall back to the most recent still-held key
+                    this.playNote(this.heldNotes[this.heldNotes.length - 1], time);
+                } else {
+                    this.monoVoice.stop(time);
+                }
             }
         }
     }
 
     stopAllNotes() {
         const time = this.ctx.currentTime;
-        Object.values(this.activeVoices).forEach(voice => voice.stop(time));
+        Object.values(this.activeVoices).forEach(voice => this._stopVoiceGroup(voice, time));
         this.activeVoices = {};
+        this.heldNotes = [];
         if (this.monoVoice) {
             this.monoVoice.stop(time);
             this.monoVoice = null;
         }
+    }
+
+    // 303-style slide: glide the sounding note (scheduled by tie steps with a
+    // different pitch) without retriggering any envelope.
+    slideNote(fromNote, toNote, time) {
+        const voice = this.params.master.polyphony === 'poly'
+            ? this.activeVoices[fromNote]
+            : this.monoVoice;
+        if (!voice || !voice.isActive) return;
+
+        const freq = this.noteToFreq(toNote);
+        const g = parseFloat(this.params.master.glide);
+        const glideTime = g > 0 ? g : 0.06; // classic short slide when glide is off
+        voice.glideTo(freq, time, glideTime);
+        voice.unisonSiblings.forEach(s => s.glideTo(freq, time, glideTime));
     }
 
     updateLFO1() {
@@ -280,9 +341,16 @@ export class Synth {
         }
     }
 
+    // Smoothly approach a value on a long-lived AudioParam (zipper prevention)
+    _smoothSet(param, value, tau = 0.02) {
+        const now = this.ctx.currentTime;
+        param.cancelScheduledValues(now);
+        param.setTargetAtTime(parseFloat(value), now, tau);
+    }
+
     updateParams(module, key, value) {
         if (module === 'master') {
-            if (key === 'volume') this.masterGain.gain.value = value;
+            if (key === 'volume') this._smoothSet(this.masterGain.gain, value);
             if (key === 'polyphony') this.params.master.polyphony = value;
             if (key === 'glide') this.params.master.glide = value;
             if (key === 'swing') this.params.master.swing = value;
@@ -290,6 +358,9 @@ export class Synth {
             if (key === 'arpMode') this.params.master.arpMode = value;
             if (key === 'arpLatch') this.params.master.arpLatch = value;
             if (key === 'arpOctaves') this.params.master.arpOctaves = value;
+            if (key === 'unison') this.params.master.unison = value;
+            if (key === 'uniDetune') this.params.master.uniDetune = value;
+            if (key === 'spread') this.params.master.spread = value;
         } else if (module === 'effects') {
             // Apply from the params object, NOT from the DOM — during preset
             // loading the DOM still holds the old values at this point.
@@ -299,8 +370,11 @@ export class Synth {
             if (key === 'dist-on' || key === 'dist-drive') {
                 this.effects.setDistortion(fx['dist-on'], fx['dist-drive']);
             }
-            if (key === 'delay-on' || key === 'delay-time' || key === 'delay-fb' || key === 'delay-mix') {
-                this.effects.setDelay(fx['delay-on'], fx['delay-time'], fx['delay-fb'], fx['delay-mix']);
+            if (key === 'delay-on' || key === 'delay-time' || key === 'delay-fb' || key === 'delay-mix' || key === 'delay-sync') {
+                // Sync > 0 means the delay time is a note length in beats
+                const sync = parseFloat(fx['delay-sync']);
+                const delayTime = sync > 0 ? Math.min(2, sync * (60 / this.bpm)) : fx['delay-time'];
+                this.effects.setDelay(fx['delay-on'], delayTime, fx['delay-fb'], fx['delay-mix']);
             }
             if (key === 'reverb-on' || key === 'reverb-mix') {
                 this.effects.setReverb(fx['reverb-on'], fx['reverb-mix']);
@@ -319,14 +393,17 @@ export class Synth {
 
             if (module === 'vco1' && key === 'pwm') {
                 // Keep the LFO1 -> PWM mod depth in sync with the PWM slider
-                this.lfo1PwmGain.gain.value = parseFloat(value) || 0;
+                this._smoothSet(this.lfo1PwmGain.gain, parseFloat(value) || 0);
             }
 
-            // Real-time update active voices
+            // Real-time update active voices (incl. unison siblings)
             if (!this._updateScheduled) {
                 this._updateScheduled = true;
                 setTimeout(() => {
-                    Object.values(this.activeVoices).forEach(voice => voice.updateParams());
+                    Object.values(this.activeVoices).forEach(voice => {
+                        voice.updateParams();
+                        voice.unisonSiblings.forEach(s => s.updateParams());
+                    });
                     if (this.monoVoice) this.monoVoice.updateParams();
                     this._updateScheduled = false;
                 }, 0);
