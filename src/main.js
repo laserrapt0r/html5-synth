@@ -58,13 +58,26 @@ const buildFactoryOptions = (sel) => {
 // the master section stay global (shared FX bus, like real hardware).
 const VOICE_LOCK_GROUPS = ['vco1', 'vco2', 'vco3', 'noise', 'filter', 'fEnv', 'aEnv', 'pEnv'];
 
-const flattenPatchToLocks = (params) => {
+export const flattenPatchToLocks = (params) => {
     const locks = {};
     for (const group of VOICE_LOCK_GROUPS) {
         for (const [key, value] of Object.entries(params[group] || {})) {
             if (key === 'customWaveReal' || key === 'customWaveImag') continue; // drawn wave stays global
             locks[`${group}.${key}`] = value;
         }
+    }
+
+    // Performance isolation: track sounds always play polyphonically, bring
+    // their own unison settings and their own LFO depths — the global preset
+    // on the panel must not change how an assigned track sounds. (Effects and
+    // the LFO waveform/rate stay global, like a shared FX bus.)
+    locks['master.polyphony'] = 'poly';
+    ['unison', 'uniDetune', 'spread'].forEach(k => {
+        if (params.master && params.master[k] !== undefined) locks[`master.${k}`] = params.master[k];
+    });
+    if (params.lfo1) {
+        locks['lfo1.pitch'] = params.lfo1.pitch;
+        locks['lfo1.cutoff'] = params.lfo1.cutoff;
     }
     return locks;
 };

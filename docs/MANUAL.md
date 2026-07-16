@@ -97,6 +97,10 @@ Each of the four tracks has, left of its step grid:
 - **Sound select** — the track's own sound: any factory preset or user patch,
   or **LIVE** (the sound currently on the synth panel). This is what makes the
   tracks multi-timbral: kick, snare, hats and bass as genuinely different sounds.
+  Assigned sounds are isolated from whatever preset you load on the panel —
+  they keep their own voice parameters, LFO depths and unison settings. Only
+  the effects section and the LFO waveform/rate remain global (a shared FX bus,
+  like on hardware grooveboxes).
 - **Bank A–H** — which of the 8 pattern banks the track plays. While the
   sequencer runs, switches are **quantized** to the loop start (pending = blinking).
 - **LEN** — loop length (1–32) of that bank. Different lengths run

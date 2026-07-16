@@ -123,9 +123,13 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
 
 Patterns: `sequencer.patterns[bank][step]` — 8 banks (A–H) × 32 steps. Four *tracks* each play one
 bank (`trackBanks`) and can be muted (`trackMuted`). Each track can carry its own **sound**
-(`trackSoundIds`/`trackSoundLocks`): a patch flattened to voice-level P-Locks (see `main.js`
-`flattenPatchToLocks`) merged *under* the step locks at schedule time — that's what makes the
-tracks multi-timbral while effects/LFOs stay global. Tracks on the same bank with the same sound
+(`trackSoundIds`/`trackSoundLocks`): a patch flattened to P-Locks (see `main.js`
+`flattenPatchToLocks`) merged *under* the step locks at schedule time. The flattening covers all
+voice params **plus** performance isolation: `master.polyphony` is forced to `'poly'`,
+`master.unison/uniDetune/spread` and the LFO depths (`lfo1.pitch/cutoff`, `vco1.pwm`) come from
+the patch — `Synth.playNote` consults these per note, and `_connectLFOs` builds per-voice depth
+gains tapping `lfo1Bus` instead of the global depth gains. Only effects and the LFO
+waveform/rate remain global. Tracks on the same bank with the same sound
 are triggered only once; with different sounds they layer.
 
 ### Velocity

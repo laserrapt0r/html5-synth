@@ -94,6 +94,10 @@ export class Voice {
         // Connections made from long-lived nodes (LFOs) into this voice.
         // They must be severed on cleanup, otherwise the voice can never be GC'd.
         this.externalConnections = [];
+
+        // Nodes created for this voice outside the class (per-voice LFO depth
+        // gains) — disconnected together with the voice.
+        this.ownedNodes = [];
     }
 
     setupOscillators() {
@@ -195,6 +199,8 @@ export class Voice {
             try { source.disconnect(target); } catch (e) { /* already disconnected */ }
         });
         this.externalConnections = [];
+        this.ownedNodes.forEach(n => n.disconnect());
+        this.ownedNodes = [];
 
         this.oscs.forEach(osc => osc.disconnect());
         this.oscGains.forEach(gain => gain.disconnect());

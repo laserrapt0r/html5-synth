@@ -72,26 +72,28 @@ export class Synth {
         this._sustained = []; // voices held only by the pedal
         this._monoSustainPending = false;
 
-        // LFO 1
+        // LFO 1: the oscillator (or the S&H source in random mode) feeds a
+        // shared bus; the global depth gains and any per-voice depth gains
+        // (track sounds carry their own LFO depths) tap that bus.
         this.lfo1 = this.ctx.createOscillator();
+        this.lfo1Bus = this.ctx.createGain();
         this.lfo1PitchGain = this.ctx.createGain();
         this.lfo1CutoffGain = this.ctx.createGain();
         this.lfo1PwmGain = this.ctx.createGain(); // PWM Mod
-        
-        this.lfo1.connect(this.lfo1PitchGain);
-        this.lfo1.connect(this.lfo1CutoffGain);
-        this.lfo1.connect(this.lfo1PwmGain);
+
+        this.lfo1.connect(this.lfo1Bus);
+        this.lfo1Bus.connect(this.lfo1PitchGain);
+        this.lfo1Bus.connect(this.lfo1CutoffGain);
+        this.lfo1Bus.connect(this.lfo1PwmGain);
         this.lfo1.start();
-        
+
         // Random LFO (S&H) Logic
         this.lfo1RndInterval = null;
         this.lfo2RndInterval = null;
-        
+
         this.lfo1RndSource = this.ctx.createConstantSource();
         this.lfo1RndSource.start();
-        this.lfo1RndSource.connect(this.lfo1PitchGain);
-        this.lfo1RndSource.connect(this.lfo1CutoffGain);
-        this.lfo1RndSource.connect(this.lfo1PwmGain);
+        this.lfo1RndSource.connect(this.lfo1Bus);
         
         this.lfo2RndSource = this.ctx.createConstantSource();
         this.lfo2RndSource.start();
@@ -116,7 +118,7 @@ export class Synth {
         // MIDI mod wheel: adds LFO1 vibrato on top of the panel depths
         this.modWheelGain = this.ctx.createGain();
         this.modWheelGain.gain.value = 0;
-        this.lfo1.connect(this.modWheelGain);
+        this.lfo1Bus.connect(this.modWheelGain);
 
         // Apply initial params to LFO1 (type, rate) and all mod depths.
         // Without this, lfo1 runs at the oscillator default (440 Hz sine) and
@@ -152,16 +154,41 @@ export class Synth {
 
     // Connect the global LFO mod gains into a voice and remember the
     // connections so Voice.disconnect() can sever them again.
-    _connectLFOs(voice) {
-        this.lfo1PitchGain.connect(voice.pitchTarget);
-        this.lfo1CutoffGain.connect(voice.filterTarget);
-        this.lfo1PwmGain.connect(voice.vco1DcOffset.offset);
+    // Connect the LFO modulation into a voice. When the note carries its own
+    // depth locks (track sounds do), a private depth gain tapping the LFO bus
+    // is used instead of the global one — so changing the panel/global preset
+    // can't wobble a track that brought its own sound.
+    _connectLFOs(voice, locks = null) {
+        const conns = voice.externalConnections;
+
+        const perVoiceDepth = (lockKey, target) => {
+            const val = locks ? locks[lockKey] : undefined;
+            if (val === undefined) return false;
+            const depth = this.ctx.createGain();
+            depth.gain.value = parseFloat(val) || 0;
+            this.lfo1Bus.connect(depth);
+            depth.connect(target);
+            voice.ownedNodes.push(depth);
+            conns.push([this.lfo1Bus, depth]);
+            return true;
+        };
+
+        if (!perVoiceDepth('lfo1.pitch', voice.pitchTarget)) {
+            this.lfo1PitchGain.connect(voice.pitchTarget);
+            conns.push([this.lfo1PitchGain, voice.pitchTarget]);
+        }
+        if (!perVoiceDepth('lfo1.cutoff', voice.filterTarget)) {
+            this.lfo1CutoffGain.connect(voice.filterTarget);
+            conns.push([this.lfo1CutoffGain, voice.filterTarget]);
+        }
+        if (!perVoiceDepth('vco1.pwm', voice.vco1DcOffset.offset)) {
+            this.lfo1PwmGain.connect(voice.vco1DcOffset.offset);
+            conns.push([this.lfo1PwmGain, voice.vco1DcOffset.offset]);
+        }
+
         this.bendSource.connect(voice.pitchTarget);
         this.modWheelGain.connect(voice.pitchTarget);
-        voice.externalConnections.push(
-            [this.lfo1PitchGain, voice.pitchTarget],
-            [this.lfo1CutoffGain, voice.filterTarget],
-            [this.lfo1PwmGain, voice.vco1DcOffset.offset],
+        conns.push(
             [this.bendSource, voice.pitchTarget],
             [this.modWheelGain, voice.pitchTarget]
         );
@@ -184,11 +211,18 @@ export class Synth {
         if (this.ctx.state !== 'running') return; // don't queue notes while suspended (pre-init)
         const freq = this.noteToFreq(note);
 
-        if (this.params.master.polyphony === 'poly') {
+        // Performance params can be overridden per note (track sounds force
+        // poly and bring their own unison settings, isolating them from
+        // whatever preset is loaded on the panel)
+        const P = pLocks || {};
+        const pick = (key, fallback) => (P[key] !== undefined ? P[key] : fallback);
+        const mode = pick('master.polyphony', this.params.master.polyphony);
+
+        if (mode === 'poly') {
             // Polyphonic Mode
-            const unison = Math.max(1, Math.min(3, parseInt(this.params.master.unison) || 1));
-            const uniDetune = parseFloat(this.params.master.uniDetune) || 0;
-            const spread = parseFloat(this.params.master.spread) || 0;
+            const unison = Math.max(1, Math.min(3, parseInt(pick('master.unison', this.params.master.unison)) || 1));
+            const uniDetune = parseFloat(pick('master.uniDetune', this.params.master.uniDetune)) || 0;
+            const spread = parseFloat(pick('master.spread', this.params.master.spread)) || 0;
 
             // Enforce the voice limit (unison siblings count) by stealing the oldest note
             const effectiveMax = Math.max(2, Math.floor(this.maxVoices / unison));
@@ -221,7 +255,7 @@ export class Synth {
                 } else {
                     v.panner.pan.value = noteSide * spread * 0.7;
                 }
-                this._connectLFOs(v);
+                this._connectLFOs(v, P);
                 v.panner.connect(this.effects.input);
                 v.start(freq, time, pLocks, velocity);
                 group.push(v);
@@ -253,7 +287,7 @@ export class Synth {
             if (!this.monoVoice || !this.monoVoice.isActive || this.monoVoice.isStopping) {
                 this.monoVoice = new Voice(this.ctx, this.params);
                 this.monoVoice.startTime = time;
-                this._connectLFOs(this.monoVoice);
+                this._connectLFOs(this.monoVoice, P);
                 this.monoVoice.panner.connect(this.effects.input);
                 this.monoVoice.start(freq, time, pLocks, velocity);
             } else {
@@ -266,7 +300,7 @@ export class Synth {
 
                 // Retrigger envelopes if Mono, don't retrigger if Legato
                 // (legato keeps the first note's velocity, like real mono synths)
-                if (this.params.master.polyphony === 'mono') {
+                if (mode === 'mono') {
                     const prevLevel = this.monoVoice._ampEnvValueAt(time); // with the old velocity
                     this.monoVoice.velocity = velocity;
                     this.monoVoice.triggerAmpEnvelope(time, prevLevel);
@@ -366,7 +400,7 @@ export class Synth {
         this.lfo1PwmGain.gain.value = this.params.vco1.pwm;
 
         if (wave === 'random') {
-            this.lfo1.disconnect(); // Disable normal LFO
+            this.lfo1.disconnect(); // detach the oscillator from the bus; the S&H source keeps feeding it
             if (!this.lfo1RndInterval) {
                 const updateSAndH = () => {
                     if (this.params.lfo1.wave !== 'random') {
@@ -386,9 +420,7 @@ export class Synth {
             this.lfo1RndSource.offset.value = 0; // Reset DC offset
             this.lfo1.type = wave;
             this.lfo1.frequency.value = this._lfoRate(this.params.lfo1);
-            this.lfo1.connect(this.lfo1PitchGain);
-            this.lfo1.connect(this.lfo1CutoffGain);
-            this.lfo1.connect(this.lfo1PwmGain);
+            this.lfo1.connect(this.lfo1Bus);
         }
     }
 

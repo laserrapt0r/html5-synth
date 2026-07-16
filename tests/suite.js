@@ -12,6 +12,7 @@ import { Sequencer } from '../src/audio/Sequencer.js?v=2';
 import { MidiInput } from '../src/MidiInput.js';
 import { Persistence } from '../src/Persistence.js';
 import { Presets } from '../src/audio/Presets.js';
+import { flattenPatchToLocks } from '../src/main.js';
 
 const errors = [];
 let passed = 0;
@@ -393,6 +394,25 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
             'legacy 2-track project merges cleanly');
 
         synth.playNote = realPlay;
+
+        // Track-sound isolation from the global preset
+        const flat = flattenPatchToLocks(Presets['snare-drum'].params);
+        assert(flat['master.polyphony'] === 'poly' && flat['lfo1.pitch'] === 0 && flat['lfo1.cutoff'] === 0,
+            'flattened track sounds force poly and carry their own LFO depths');
+        synth.params.master.polyphony = 'mono';
+        synth.updateParams('lfo1', 'pitch', '200'); // wobbly global preset
+        synth.playNote(80, ctx.currentTime, 0, flat);
+        const iso = synth.activeVoices[80];
+        assert(!!iso, 'track sound plays poly even while the panel is mono');
+        assert(iso.ownedNodes.length >= 2 && iso.ownedNodes.every(g => g.gain.value === 0),
+            'per-voice LFO depths shield the track from global modulation');
+        synth.stopNote(80, ctx.currentTime);
+        synth.params.master.polyphony = 'poly';
+        synth.updateParams('lfo1', 'pitch', '0');
+        const uniLocks = { 'master.unison': 3, 'master.uniDetune': 20, 'master.spread': 0.5 };
+        synth.playNote(81, ctx.currentTime, 0, uniLocks);
+        assert(synth.activeVoices[81].unisonSiblings.length === 2, 'per-note unison override from track sound');
+        synth.stopNote(81, ctx.currentTime);
 
         // ---------------- Persistence ----------------
         const pers = new Persistence(synth, seq);

@@ -105,7 +105,10 @@ Jeder der vier Tracks hat links neben seinem Step-Grid:
 - **Sound-Auswahl** — der eigene Sound des Tracks: jedes Werks-Preset oder
   jeder User-Patch, oder **LIVE** (der aktuell am Synth-Panel eingestellte
   Sound). Das macht die Tracks multi-timbral: Kick, Snare, Hats und Bass als
-  wirklich verschiedene Sounds.
+  wirklich verschiedene Sounds. Zugewiesene Sounds sind vom Panel-Preset
+  isoliert — sie behalten ihre eigenen Voice-Parameter, LFO-Tiefen und
+  Unison-Einstellungen. Nur die Effektsektion und Wellenform/Tempo der LFOs
+  bleiben global (ein geteilter FX-Bus wie bei Hardware-Grooveboxen).
 - **Bank A–H** — welche der 8 Pattern-Banks der Track spielt. Bei laufendem
   Sequencer werden Wechsel auf den Loop-Anfang **quantisiert** (ausstehend =
   blinkend).
