@@ -274,6 +274,7 @@ export class UIController {
                         if (!isActive) {
                             this.sequencer.setStepTie(i, false, this.trackBanks[trackIndex]);
                             btn.classList.remove('tie');
+                            btn.parentElement.classList.remove('tie-step');
                         }
                     }
                 });
@@ -288,6 +289,7 @@ export class UIController {
                     const newTie = !stepData.tie;
                     this.sequencer.setStepTie(i, newTie, bankIdx);
                     btn.classList.toggle('tie', newTie);
+                    btn.parentElement.classList.toggle('tie-step', newTie);
                 });
 
                 const pitchSelect = document.createElement('select');
@@ -363,6 +365,7 @@ export class UIController {
             
             btn.classList.toggle('active', stepData.active);
             btn.classList.toggle('tie', stepData.tie);
+            btn.parentElement.classList.toggle('tie-step', stepData.tie);
             select.value = stepData.note;
             btn.classList.remove('edit-mode');
         }

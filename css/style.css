@@ -536,6 +536,11 @@ input:checked + .slider.round:before {
     cursor: pointer;
 }
 
+.step-col.tie-step .step-pitch {
+    opacity: 0.2;
+    pointer-events: none;
+}
+
 /* Buttons */
 .glow-btn {
     background: rgba(0, 243, 255, 0.05);
