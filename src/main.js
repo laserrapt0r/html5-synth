@@ -261,7 +261,7 @@ window.addEventListener('keyup', (e) => {
 const handleResize = () => {
     const container = document.getElementById('app');
     const targetWidth = 1604; // container incl. border
-    const targetHeight = 924;
+    const targetHeight = 974;
 
     // Small margin so the glow/shadow isn't clipped at the edges
     const availableWidth = window.innerWidth - 20;
