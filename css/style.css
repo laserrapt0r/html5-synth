@@ -43,7 +43,7 @@ body {
        transform scale in main.js. A fluid width would reflow the inner layout
        and make fixed-size controls overlap their shrinking panels. */
     width: 1600px;
-    height: 970px;
+    height: 1070px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -467,6 +467,26 @@ input:checked + .slider.round:before {
     gap: 4px;
     flex-shrink: 0;
 }
+
+.track-side {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    width: 216px;
+    flex-shrink: 0;
+}
+.track-side select {
+    background: #111;
+    color: var(--neon-cyan);
+    border: 1px solid #2a2f3e;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    padding: 2px 1px;
+}
+.track-sound { width: 104px; }
+.track-bank { width: 34px; }
+.track-len { width: 42px; }
 
 .pattern-mute-btn {
     width: 28px;
@@ -981,8 +1001,20 @@ body.powered-on .glow-btn.playing {
 }
 
 /* --- Transport --- */
+/* Fixed widths: the PLAY label toggles to PAUSE — without a fixed width the
+   whole control row would shift on every transport change */
+.play-btn {
+    width: 92px;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
+}
 .stop-btn, .rec-btn {
-    min-width: 50px;
+    width: 64px;
+    min-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
 }
 .rec-btn.recording {
     color: #ff2a2a !important;
@@ -1000,7 +1032,7 @@ body.powered-on .glow-btn.playing {
 }
 
 /* --- Quantized bank switch pending --- */
-.wave-btn.bank-pending {
+.bank-pending {
     animation: bank-blink 0.5s infinite alternate;
 }
 @keyframes bank-blink {

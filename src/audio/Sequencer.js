@@ -12,6 +12,7 @@ export class Sequencer {
         this.currentStep = 0;
         this.numSteps = 32;
         this.numPatterns = 8;
+        this.numTracks = 4;
         this.currentEditPattern = 0;
         
         this.arpNotes = []; // Stores MIDI note numbers held down
@@ -28,10 +29,16 @@ export class Sequencer {
             Array.from({length: this.numSteps}, () => ({ active: false, note: 60, tie: false, accent: false, locks: {} }))
         );
         
-        this.trackBanks = [0, 1]; // Pattern 1 plays Bank A(0), Pattern 2 plays Bank B(1)
-        this.trackMuted = [false, false]; // Mute state per pattern
+        this.trackBanks = Array.from({length: this.numTracks}, (_, i) => i); // track n plays bank n by default
+        this.trackMuted = Array.from({length: this.numTracks}, () => false);
         this.patternLengths = Array.from({length: this.numPatterns}, () => this.numSteps); // per-bank loop length (1..32)
-        this.pendingTrackBanks = [null, null]; // bank switches queued to the loop start
+        this.pendingTrackBanks = Array.from({length: this.numTracks}, () => null); // bank switches queued to the loop start
+
+        // Per-track sound: a patch id + its voice params flattened to P-Locks,
+        // merged under each step's own locks at schedule time. null = the live
+        // panel sound. This is what makes the tracks multi-timbral.
+        this.trackSoundIds = Array.from({length: this.numTracks}, () => null);
+        this.trackSoundLocks = Array.from({length: this.numTracks}, () => null);
 
         // Song mode: a chain of scenes [{banks:[a,b], repeats:n}]
         this.songMode = false;
@@ -46,6 +53,7 @@ export class Sequencer {
         // Recording
         this.recArmed = false;
         this.recCursor = 0;
+        this.recTarget = 0; // which track receives recorded notes
 
         // Timing scheduling
         this.lookahead = 25.0; // ms
@@ -97,11 +105,16 @@ export class Sequencer {
         if (!on) this.recCursor = 0;
     }
 
-    // Write a played note into track 1's current bank: quantized to the
-    // audible step while playing, step-entry (advancing cursor) while stopped.
+    setTrackSound(trackIndex, id, locks) {
+        this.trackSoundIds[trackIndex] = id || null;
+        this.trackSoundLocks[trackIndex] = locks || null;
+    }
+
+    // Write a played note into the target track's current bank: quantized to
+    // the audible step while playing, step-entry (advancing cursor) while stopped.
     recordNote(note) {
         if (!this.recArmed) return;
-        const bankIdx = this.trackBanks[0];
+        const bankIdx = this.trackBanks[this.recTarget];
         const len = this.patternLengths[bankIdx];
         let pos;
         if (this.isPlaying) {
@@ -119,7 +132,7 @@ export class Sequencer {
         step.active = true;
         step.note = note;
         step.tie = false;
-        if (this.onRecord) this.onRecord(0, pos);
+        if (this.onRecord) this.onRecord(this.recTarget, pos);
     }
 
     setGate(value) {
@@ -248,12 +261,13 @@ export class Sequencer {
             }
             const scene = this.songChain[this.songIndex];
             if (scene) {
-                this.trackBanks[0] = scene.banks[0];
-                this.trackBanks[1] = scene.banks[1];
+                for (let t = 0; t < this.numTracks; t++) {
+                    if (scene.banks[t] !== undefined) this.trackBanks[t] = scene.banks[t];
+                }
                 if (this.onSongStep) this.onSongStep(this.songIndex);
             }
         }
-        for (let t = 0; t < 2; t++) {
+        for (let t = 0; t < this.numTracks; t++) {
             if (this.pendingTrackBanks[t] !== null) {
                 this.trackBanks[t] = this.pendingTrackBanks[t];
                 this.pendingTrackBanks[t] = null;
@@ -357,13 +371,16 @@ export class Sequencer {
         } 
         // Normal Sequencer Logic
         else if (!arpOn) {
-            const playedBanks = new Set(); // both tracks on the same bank must not double-trigger
-            for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+            // Tracks on the same bank AND the same sound must not double-trigger;
+            // same bank with different sounds is legitimate layering.
+            const playedKeys = new Set();
+            for (let trackIndex = 0; trackIndex < this.numTracks; trackIndex++) {
                 if (this.trackMuted[trackIndex]) continue;
 
                 const bankIdx = this.trackBanks[trackIndex];
-                if (playedBanks.has(bankIdx)) continue;
-                playedBanks.add(bankIdx);
+                const dedupeKey = bankIdx + ':' + (this.trackSoundIds[trackIndex] || '');
+                if (playedKeys.has(dedupeKey)) continue;
+                playedKeys.add(dedupeKey);
                 if (bankIdx < 0 || bankIdx >= this.numPatterns) continue;
 
                 // Each bank loops within its own length (polymetric tracks)
@@ -390,7 +407,11 @@ export class Sequencer {
                     const totalSteps = 1 + tieCount;
                     const gateDuration = (stepDuration * totalSteps) * this.gate;
 
-                    this.synth.playNote(stepData.note, scheduledTime, gateDuration, stepData.locks,
+                    // Track sound (multi-timbrality) merged under the step's own locks
+                    const soundLocks = this.trackSoundLocks[trackIndex];
+                    const locks = soundLocks ? { ...soundLocks, ...stepData.locks } : stepData.locks;
+
+                    this.synth.playNote(stepData.note, scheduledTime, gateDuration, locks,
                         stepData.accent ? ACCENT_VELOCITY : 1);
                 }
             }
@@ -450,7 +471,7 @@ export class Sequencer {
         this.songIndex = 0;
         this.songLoopCount = 0;
         this._songFirst = true;
-        this.pendingTrackBanks = [null, null];
+        this.pendingTrackBanks = Array.from({length: this.numTracks}, () => null);
         this.synth.stopAllNotes();
         this._updateTransportUI();
         if (this.onStep) this.onStep(-1);
@@ -464,6 +485,7 @@ export class Sequencer {
             patternLengths: [...this.patternLengths],
             trackBanks: [...this.trackBanks],
             trackMuted: [...this.trackMuted],
+            trackSoundIds: [...this.trackSoundIds],
             bpm: this.bpm,
             gate: this.gate,
             timeDiv: this.timeDiv,
@@ -497,12 +519,26 @@ export class Sequencer {
                 }
             });
         }
-        if (Array.isArray(state.trackBanks)) this.trackBanks = [...state.trackBanks];
-        if (Array.isArray(state.trackMuted)) this.trackMuted = [...state.trackMuted];
+        // Merge per index — older projects may have fewer tracks than we do now
+        if (Array.isArray(state.trackBanks)) {
+            state.trackBanks.forEach((b, i) => { if (i < this.numTracks) this.trackBanks[i] = b; });
+        }
+        if (Array.isArray(state.trackMuted)) {
+            state.trackMuted.forEach((m, i) => { if (i < this.numTracks) this.trackMuted[i] = !!m; });
+        }
+        if (Array.isArray(state.trackSoundIds)) {
+            state.trackSoundIds.forEach((id, i) => { if (i < this.numTracks) this.trackSoundIds[i] = id || null; });
+            // trackSoundLocks are re-resolved from the ids by main.js after loading
+        }
         if (state.bpm) this.setBpm(state.bpm);
         if (state.gate) this.gate = parseFloat(state.gate);
         if (state.timeDiv) this.timeDiv = parseFloat(state.timeDiv);
         this.songMode = !!state.songMode;
-        this.songChain = Array.isArray(state.songChain) ? state.songChain : [];
+        this.songChain = (Array.isArray(state.songChain) ? state.songChain : []).map(scene => ({
+            // Pad scenes from older 2-track projects with the current banks
+            banks: Array.from({length: this.numTracks}, (_, t) =>
+                (scene.banks && scene.banks[t] !== undefined) ? scene.banks[t] : this.trackBanks[t]),
+            repeats: scene.repeats || 1
+        }));
     }
 }

@@ -8,7 +8,7 @@ features typically found on hardware synths.
 
 ## Features
 
-- **3-Oscillator Engine** with Poly, Mono and Legato voice modes (8-voice polyphony with voice stealing).
+- **3-Oscillator Engine** with Poly, Mono and Legato voice modes (16-voice polyphony with voice stealing).
   Classic analog waveforms (Saw, Square, Triangle, Sine) plus White/Pink Noise and Glide/Portamento.
   Mono mode has **note memory** (release falls back to still-held keys) and click-free envelope retriggering.
 - **Stereo Unison:** Up to 3 detuned voices per note spread across the stereo field, plus per-note
@@ -23,10 +23,11 @@ features typically found on hardware synths.
 - **Pulse Width Modulation (PWM)** and a **Pitch Envelope** (±48 semitones, for kicks and zaps).
 - **Dual LFOs:** LFO1 modulates Pitch, Filter Cutoff and PWM; LFO2 is a tremolo. Both include a
   Random (Sample & Hold) mode for generative textures.
-- **32-Step Sequencer** with two pattern tracks, eight banks (A–H) with **individual loop lengths**
-  (polymetric patterns!), per-track mute, **ties & 303-style slides** (a tie step with a different
-  pitch glides there), **accents**, per-step **Parameter Locks**, quantized bank switching and
-  **live/step recording** from any keyboard.
+- **32-Step Sequencer** with **four tracks — each with its own sound** (multi-timbral: pick any
+  factory preset or user patch per track, or LIVE for the current panel sound), eight banks (A–H)
+  with **individual loop lengths** (polymetric patterns!), per-track mute, **ties & 303-style
+  slides**, **accents**, per-step **Parameter Locks**, quantized bank switching and **live/step
+  recording** into a selectable target track.
 - **Song Mode:** Chain bank scenes with repeat counts into full arrangements.
 - **Arpeggiator:** 8 modes, 1–3 octaves, proper latch (a new chord replaces the old one), synced to the clock.
 - **Swing, Gate & Time Division** (1/8, 1/16, 1/32); transport with Play/Pause and Stop.
@@ -58,11 +59,12 @@ features typically found on hardware synths.
 | **Ctrl+Click** on a step | Toggle **accent** (velocity boost, orange LED) |
 | **Right-click** on a step column | Toggle **tie** — extends the previous note; give the tie step a *different pitch* and it **slides** there (303 style) |
 | **Shift+Click** on a step | Enter **P-Lock edit mode** — every control you now move is locked to this step only |
-| Bank radio buttons (A–H) | Choose the bank per track — while playing, the switch is **quantized** to the loop start (blinking = pending) |
+| SOUND select (per track) | The track's sound: **LIVE** = current panel sound, or any preset/user patch (voice params only — effects stay global) |
+| Bank select (A–H) | Choose the bank per track — while playing, the switch is **quantized** to the loop start (blinking = pending) |
 | LEN select | Loop length (1–32) of the track's current bank — different lengths run polymetrically |
 | P1/P2 buttons | Mute/unmute a pattern track |
 | **PLAY / STOP** | Play toggles play/pause (keeps the position); Stop resets to step 1 and cuts ringing notes |
-| **REC** | Record played notes into pattern 1: step entry while stopped, quantized to the beat while playing |
+| **REC** + →P select | Record played notes into the target track: step entry while stopped, quantized to the beat while playing |
 | **SONG** row | Chain scenes: **+ADD** captures the current bank selection, click a chip to raise its repeat count, right-click removes it |
 
 ## Patches & Projects

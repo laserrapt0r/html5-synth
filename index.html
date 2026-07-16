@@ -503,7 +503,13 @@
                     <div style="display: flex; gap: 5px;">
                         <button id="seq-play" class="glow-btn play-btn">PLAY</button>
                         <button id="seq-stop" class="glow-btn stop-btn" title="Stop and reset to step 1">STOP</button>
-                        <button id="seq-rec" class="glow-btn rec-btn" title="Record played notes into pattern 1 (step entry when stopped, quantized while playing)">REC</button>
+                        <button id="seq-rec" class="glow-btn rec-btn" title="Record played notes into the target track (step entry when stopped, quantized while playing)">REC</button>
+                        <select id="rec-target" class="preset-dropdown" style="font-size: 0.65rem; padding: 2px;" title="Recording target track">
+                            <option value="0" selected>→P1</option>
+                            <option value="1">→P2</option>
+                            <option value="2">→P3</option>
+                            <option value="3">→P4</option>
+                        </select>
                     </div>
 
                     <div class="control-group horizontal">
@@ -556,77 +562,14 @@
                             <input type="range" id="arp-octaves" min="1" max="3" step="1" value="1" style="width: 40px;">
                         </div>
                     </div>
-                    
-                    <div class="pattern-select-container" style="margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                        <!-- Pattern 1 Controls -->
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;" title="Pattern 1 bank">P1:</div>
-                            <div class="pattern-select radio-group" style="display: flex; gap: 2px;">
-                                <input type="radio" name="track1-bank" id="t1-pat-a" value="0" checked>
-                                <label for="t1-pat-a" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">A</label>
-                                <input type="radio" name="track1-bank" id="t1-pat-b" value="1">
-                                <label for="t1-pat-b" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">B</label>
-                                <input type="radio" name="track1-bank" id="t1-pat-c" value="2">
-                                <label for="t1-pat-c" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">C</label>
-                                <input type="radio" name="track1-bank" id="t1-pat-d" value="3">
-                                <label for="t1-pat-d" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">D</label>
-                                <input type="radio" name="track1-bank" id="t1-pat-e" value="4">
-                                <label for="t1-pat-e" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">E</label>
-                                <input type="radio" name="track1-bank" id="t1-pat-f" value="5">
-                                <label for="t1-pat-f" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">F</label>
-                                <input type="radio" name="track1-bank" id="t1-pat-g" value="6">
-                                <label for="t1-pat-g" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">G</label>
-                                <input type="radio" name="track1-bank" id="t1-pat-h" value="7">
-                                <label for="t1-pat-h" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">H</label>
-                            </div>
-                            <select id="pat-len-0" class="preset-dropdown" style="font-size: 0.65rem; padding: 1px 2px;" title="Loop length of this track's bank"></select>
-                        </div>
-                        
-                        <!-- Pattern 2 Controls -->
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 1px;" title="Pattern 2 bank">P2:</div>
-                            <div class="pattern-select radio-group" style="display: flex; gap: 2px;">
-                                <input type="radio" name="track2-bank" id="t2-pat-a" value="0">
-                                <label for="t2-pat-a" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">A</label>
-                                <input type="radio" name="track2-bank" id="t2-pat-b" value="1" checked>
-                                <label for="t2-pat-b" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">B</label>
-                                <input type="radio" name="track2-bank" id="t2-pat-c" value="2">
-                                <label for="t2-pat-c" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">C</label>
-                                <input type="radio" name="track2-bank" id="t2-pat-d" value="3">
-                                <label for="t2-pat-d" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">D</label>
-                                <input type="radio" name="track2-bank" id="t2-pat-e" value="4">
-                                <label for="t2-pat-e" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">E</label>
-                                <input type="radio" name="track2-bank" id="t2-pat-f" value="5">
-                                <label for="t2-pat-f" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">F</label>
-                                <input type="radio" name="track2-bank" id="t2-pat-g" value="6">
-                                <label for="t2-pat-g" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">G</label>
-                                <input type="radio" name="track2-bank" id="t2-pat-h" value="7">
-                                <label for="t2-pat-h" class="wave-btn" style="min-width: 20px; height: 20px; line-height: 20px;">H</label>
-                            </div>
-                            <select id="pat-len-1" class="preset-dropdown" style="font-size: 0.65rem; padding: 1px 2px;" title="Loop length of this track's bank"></select>
-                        </div>
-                    </div>
-                    
-
                 </div>
             </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                <div class="seq-track-container" style="display: flex; gap: 6px; align-items: center;">
-                    <div class="pattern-label-col">
-                        <button class="pattern-mute-btn active" id="pattern-mute-0" title="Mute/Unmute Pattern 1">P1</button>
-                    </div>
-                    <div class="seq-grid" id="sequencer-steps-0" style="flex: 1;"></div>
-                </div>
-                
-                <div class="seq-track-container" style="display: flex; gap: 6px; align-items: center;">
-                    <div class="pattern-label-col">
-                        <button class="pattern-mute-btn active" id="pattern-mute-1" title="Mute/Unmute Pattern 2">P2</button>
-                    </div>
-                    <div class="seq-grid" id="sequencer-steps-1" style="flex: 1;"></div>
-                </div>
 
-                <!-- Song mode: chain of scenes (bank pair + repeats), advances at loop end -->
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- Track rows (mute, sound, bank, length + step grid) are generated by UIController -->
+                <div id="seq-tracks" style="display: flex; flex-direction: column; gap: 6px;"></div>
+
+                <!-- Song mode: chain of scenes (banks + repeats), advances at loop end -->
                 <div class="song-row" style="display: flex; gap: 10px; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <label style="font-size: 0.65rem; letter-spacing: 1px;">SONG</label>

@@ -246,6 +246,15 @@ export class UIController {
             });
         }
 
+        // Which track receives recorded notes
+        const recTargetSel = document.getElementById('rec-target');
+        if (recTargetSel) {
+            recTargetSel.addEventListener('change', (e) => {
+                this.sequencer.recTarget = parseInt(e.target.value) || 0;
+                e.target.blur();
+            });
+        }
+
         // Grey out the delay TIME slider while the delay is BPM-synced
         const delaySyncSel = document.getElementById('delay-sync');
         if (delaySyncSel) {
@@ -305,11 +314,94 @@ export class UIController {
             this.sequencer.setStep(i, undefined, defaultNotes[i], 0);
         }
 
-        for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+        // Build the track rows: sidebar (mute, sound, bank, length) + step grid
+        const numTracks = this.sequencer.numTracks;
+        const tracksEl = document.getElementById('seq-tracks');
+        tracksEl.innerHTML = '';
+
+        for (let t = 0; t < numTracks; t++) {
+            const row = document.createElement('div');
+            row.className = 'seq-track-container';
+            row.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+
+            const side = document.createElement('div');
+            side.className = 'track-side';
+
+            const muteBtn = document.createElement('button');
+            muteBtn.className = 'pattern-mute-btn active';
+            muteBtn.id = `pattern-mute-${t}`;
+            muteBtn.title = `Mute/Unmute track ${t + 1}`;
+            muteBtn.textContent = `P${t + 1}`;
+            muteBtn.addEventListener('click', () => {
+                const isMuted = muteBtn.classList.contains('active'); // currently playing
+                muteBtn.classList.toggle('active');
+                this.sequencer.setTrackMuted(t, isMuted); // if active, we are muting
+            });
+
+            // Sound per track (multi-timbral): options are populated by main.js
+            const soundSel = document.createElement('select');
+            soundSel.className = 'track-sound';
+            soundSel.id = `track-sound-${t}`;
+            soundSel.title = 'Sound of this track (LIVE = the sound currently on the panel)';
+
+            const bankSel = document.createElement('select');
+            bankSel.className = 'track-bank';
+            bankSel.id = `track-bank-${t}`;
+            bankSel.title = 'Pattern bank — switching while playing applies at the loop start';
+            for (let b = 0; b < this.sequencer.numPatterns; b++) {
+                const opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = String.fromCharCode(65 + b);
+                bankSel.appendChild(opt);
+            }
+            bankSel.value = this.sequencer.trackBanks[t];
+            bankSel.addEventListener('change', (e) => {
+                const result = this.sequencer.setTrackBank(t, parseInt(e.target.value));
+                if (result === 'queued') {
+                    bankSel.classList.add('bank-pending');
+                } else {
+                    this.renderTrack(t);
+                    this.syncLenSelect(t);
+                }
+                e.target.blur();
+            });
+
+            const lenSel = document.createElement('select');
+            lenSel.className = 'track-len';
+            lenSel.id = `pat-len-${t}`;
+            lenSel.title = "Loop length of this track's bank";
+            for (let n = 1; n <= 32; n++) {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = n;
+                lenSel.appendChild(opt);
+            }
+            lenSel.value = this.sequencer.patternLengths[this.sequencer.trackBanks[t]];
+            lenSel.addEventListener('change', (e) => {
+                this.sequencer.setPatternLength(this.sequencer.trackBanks[t], parseInt(e.target.value));
+                this.renderTrack(t);
+                e.target.blur();
+            });
+
+            side.appendChild(muteBtn);
+            side.appendChild(soundSel);
+            side.appendChild(bankSel);
+            side.appendChild(lenSel);
+
+            const grid = document.createElement('div');
+            grid.className = 'seq-grid';
+            grid.id = `sequencer-steps-${t}`;
+            grid.style.flex = '1';
+
+            row.appendChild(side);
+            row.appendChild(grid);
+            tracksEl.appendChild(row);
+        }
+
+        for (let trackIndex = 0; trackIndex < numTracks; trackIndex++) {
             const grid = document.getElementById(`sequencer-steps-${trackIndex}`);
             if (!grid) continue;
-            grid.innerHTML = '';
-            
+
             for (let i = 0; i < 32; i++) {
                 const col = document.createElement('div');
                 col.className = 'step-col';
@@ -376,53 +468,19 @@ export class UIController {
             }
         }
 
-        this.renderTrack(0);
-        this.renderTrack(1);
-
-        // Bank selection: while playing, switches are quantized to the loop
-        // start — the chosen label blinks until the switch applies.
-        for (let t = 0; t < 2; t++) {
-            document.querySelectorAll(`input[name="track${t + 1}-bank"]`).forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    const bankIdx = parseInt(e.target.value);
-                    const result = this.sequencer.setTrackBank(t, bankIdx);
-                    document.querySelectorAll(`input[name="track${t + 1}-bank"] + label`)
-                        .forEach(l => l.classList.remove('bank-pending'));
-                    if (result === 'queued') {
-                        const label = document.querySelector(`label[for="${e.target.id}"]`);
-                        if (label) label.classList.add('bank-pending');
-                    } else {
-                        this.renderTrack(t);
-                        this.syncLenSelect(t);
-                    }
-                });
-            });
+        for (let t = 0; t < numTracks; t++) {
+            this.renderTrack(t);
         }
 
         this.sequencer.onBankApplied = (t) => {
-            document.querySelectorAll(`input[name="track${t + 1}-bank"] + label`)
-                .forEach(l => l.classList.remove('bank-pending'));
+            const bankSel = document.getElementById(`track-bank-${t}`);
+            if (bankSel) {
+                bankSel.classList.remove('bank-pending');
+                bankSel.value = this.sequencer.trackBanks[t];
+            }
             this.renderTrack(t);
             this.syncLenSelect(t);
         };
-
-        // Per-track pattern length (edits the length of the track's current bank)
-        for (let t = 0; t < 2; t++) {
-            const lenSel = document.getElementById(`pat-len-${t}`);
-            if (!lenSel) continue;
-            for (let n = 1; n <= 32; n++) {
-                const opt = document.createElement('option');
-                opt.value = n;
-                opt.textContent = n;
-                lenSel.appendChild(opt);
-            }
-            lenSel.value = this.sequencer.patternLengths[this.sequencer.trackBanks[t]];
-            lenSel.addEventListener('change', (e) => {
-                this.sequencer.setPatternLength(this.sequencer.trackBanks[t], parseInt(e.target.value));
-                this.renderTrack(t);
-                e.target.blur();
-            });
-        }
 
         this.initSongRow();
 
@@ -435,22 +493,11 @@ export class UIController {
             }
         };
 
-        for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
-            const muteBtn = document.getElementById(`pattern-mute-${trackIndex}`);
-            if (muteBtn) {
-                muteBtn.addEventListener('click', () => {
-                    const isMuted = muteBtn.classList.contains('active'); // currently playing
-                    muteBtn.classList.toggle('active');
-                    this.sequencer.setTrackMuted(trackIndex, isMuted); // if active, we are muting
-                });
-            }
-        }
-
         this.sequencer.onStep = (step) => {
             document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('current'));
 
             if (step >= 0) {
-                for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+                for (let trackIndex = 0; trackIndex < numTracks; trackIndex++) {
                     // Each track loops within its own bank length (polymetric)
                     const bank = this.sequencer.trackBanks[trackIndex];
                     const len = this.sequencer.patternLengths[bank];
@@ -514,11 +561,11 @@ export class UIController {
             });
         }
 
-        // Song advanced to a new scene: sync bank radios and grids
+        // Song advanced to a new scene: sync bank selects and grids
         this.sequencer.onSongStep = () => {
-            for (let t = 0; t < 2; t++) {
-                const radio = document.querySelector(`input[name="track${t + 1}-bank"][value="${this.sequencer.trackBanks[t]}"]`);
-                if (radio) radio.checked = true;
+            for (let t = 0; t < this.sequencer.numTracks; t++) {
+                const bankSel = document.getElementById(`track-bank-${t}`);
+                if (bankSel) bankSel.value = this.sequencer.trackBanks[t];
                 this.renderTrack(t);
                 this.syncLenSelect(t);
             }
@@ -529,14 +576,18 @@ export class UIController {
 
     // Re-sync the whole sequencer UI after a project was loaded from storage
     refreshAfterLoad() {
-        for (let t = 0; t < 2; t++) {
-            const radio = document.querySelector(`input[name="track${t + 1}-bank"][value="${this.sequencer.trackBanks[t]}"]`);
-            if (radio) radio.checked = true;
+        for (let t = 0; t < this.sequencer.numTracks; t++) {
+            const bankSel = document.getElementById(`track-bank-${t}`);
+            if (bankSel) bankSel.value = this.sequencer.trackBanks[t];
+            const soundSel = document.getElementById(`track-sound-${t}`);
+            if (soundSel) soundSel.value = this.sequencer.trackSoundIds[t] || '';
             const muteBtn = document.getElementById(`pattern-mute-${t}`);
             if (muteBtn) muteBtn.classList.toggle('active', !this.sequencer.trackMuted[t]);
             this.renderTrack(t);
             this.syncLenSelect(t);
         }
+        const recTargetSel = document.getElementById('rec-target');
+        if (recTargetSel) recTargetSel.value = this.sequencer.recTarget;
 
         const bpmRange = document.getElementById('seq-bpm-range');
         if (bpmRange) {

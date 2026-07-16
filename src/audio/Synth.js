@@ -45,7 +45,7 @@ export class Synth {
         this.bpm = 120;
 
         // Voice Management
-        this.maxVoices = 8;
+        this.maxVoices = 16; // 4 sequencer tracks + keyboard need headroom
         this.activeVoices = {}; // key: note string, value: primary Voice (unison siblings attached)
         this.monoVoice = null;
         this.heldNotes = []; // mono/legato note memory (physically held keys, in press order)

@@ -34,11 +34,95 @@ const applyPatch = (params) => {
     uiController.updateUIFromParams();
 };
 
+// --- Per-track sounds (multi-timbrality) ---
+// A track sound is a patch whose voice-level params are flattened to P-Locks
+// and merged under each step's own locks at schedule time. Effects, LFOs and
+// the master section stay global (shared FX bus, like real hardware).
+const VOICE_LOCK_GROUPS = ['vco1', 'vco2', 'vco3', 'noise', 'filter', 'fEnv', 'aEnv', 'pEnv'];
+
+const flattenPatchToLocks = (params) => {
+    const locks = {};
+    for (const group of VOICE_LOCK_GROUPS) {
+        for (const [key, value] of Object.entries(params[group] || {})) {
+            if (key === 'customWaveReal' || key === 'customWaveImag') continue; // drawn wave stays global
+            locks[`${group}.${key}`] = value;
+        }
+    }
+    return locks;
+};
+
+const resolveSoundParams = (id) => {
+    if (!id) return null;
+    if (id.startsWith('user:')) {
+        const patch = persistence.getUserPatches()[id];
+        return patch ? patch.params : null;
+    }
+    return Presets[id] ? Presets[id].params : null;
+};
+
+const applyTrackSound = (t, id) => {
+    const params = resolveSoundParams(id);
+    sequencer.setTrackSound(t, params ? id : null, params ? flattenPatchToLocks(params) : null);
+};
+
+const resolveAllTrackSounds = () => {
+    for (let t = 0; t < sequencer.numTracks; t++) {
+        applyTrackSound(t, sequencer.trackSoundIds[t]);
+    }
+};
+
+// Fill the per-track sound dropdowns (LIVE + factory presets + user patches)
+const refreshTrackSoundOptions = () => {
+    const patches = persistence.getUserPatches();
+    for (let t = 0; t < sequencer.numTracks; t++) {
+        const sel = document.getElementById(`track-sound-${t}`);
+        if (!sel) continue;
+        const current = sequencer.trackSoundIds[t] || '';
+        sel.innerHTML = '';
+        const live = document.createElement('option');
+        live.value = '';
+        live.textContent = 'LIVE';
+        sel.appendChild(live);
+        for (const [pid, preset] of Object.entries(Presets)) {
+            const opt = document.createElement('option');
+            opt.value = pid;
+            opt.textContent = preset.name;
+            sel.appendChild(opt);
+        }
+        const userIds = Object.keys(patches);
+        if (userIds.length > 0) {
+            const grp = document.createElement('optgroup');
+            grp.label = 'USER';
+            userIds.forEach(pid => {
+                const opt = document.createElement('option');
+                opt.value = pid;
+                opt.textContent = patches[pid].name;
+                grp.appendChild(opt);
+            });
+            sel.appendChild(grp);
+        }
+        sel.value = current;
+        if (sel.value !== current) sel.value = ''; // referenced patch no longer exists
+    }
+};
+
+for (let t = 0; t < sequencer.numTracks; t++) {
+    const sel = document.getElementById(`track-sound-${t}`);
+    if (!sel) continue;
+    sel.addEventListener('change', (e) => {
+        applyTrackSound(t, e.target.value || null);
+        e.target.blur();
+    });
+}
+refreshTrackSoundOptions();
+
 // Restore the previous session; fall back to the default pattern (Funky Town)
 const savedProject = persistence.loadProject();
 if (savedProject) {
     applyPatch(savedProject.params);
     if (savedProject.seq) sequencer.loadState(savedProject.seq);
+    resolveAllTrackSounds();
+    refreshTrackSoundOptions();
     uiController.refreshAfterLoad();
 } else {
     const defaultPattern = [0, 2, 4, 6, 10, 14, 16, 18, 20, 22];
@@ -88,6 +172,7 @@ document.getElementById('patch-save').addEventListener('click', () => {
     if (!name || !name.trim()) return;
     const id = persistence.saveUserPatch(name.trim());
     refreshUserPatchOptions();
+    refreshTrackSoundOptions();
     presetSelect.value = id;
 });
 
@@ -97,6 +182,8 @@ document.getElementById('patch-delete').addEventListener('click', () => {
     if (!window.confirm('Delete this user patch?')) return;
     persistence.deleteUserPatch(id);
     refreshUserPatchOptions();
+    resolveAllTrackSounds(); // tracks that used the deleted patch fall back to LIVE
+    refreshTrackSoundOptions();
     presetSelect.value = 'init';
 });
 
@@ -111,6 +198,8 @@ importInput.addEventListener('change', async () => {
     if (data) {
         applyPatch(data.params);
         if (data.seq) sequencer.loadState(data.seq);
+        resolveAllTrackSounds();
+        refreshTrackSoundOptions();
         uiController.refreshAfterLoad();
         refreshUserPatchOptions();
         persistence.saveProject();
@@ -261,7 +350,7 @@ window.addEventListener('keyup', (e) => {
 const handleResize = () => {
     const container = document.getElementById('app');
     const targetWidth = 1604; // container incl. border
-    const targetHeight = 974;
+    const targetHeight = 1074;
 
     // Small margin so the glow/shadow isn't clipped at the edges
     const availableWidth = window.innerWidth - 20;

@@ -114,9 +114,12 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
   Applied per note via `Voice.getParam`, which prefers a lock over `Synth.params`.
   Only voice-level groups are lockable (`vco1-3`, `noise`, `filter`, `fEnv`, `aEnv`, `pEnv`).
 
-Patterns: `sequencer.patterns[bank][step]` — 8 banks (A–H) × 32 steps. Two *tracks* each play one bank
-(`trackBanks`, default A and B) and can be muted (`trackMuted`). If both tracks select the same
-bank it is only triggered once.
+Patterns: `sequencer.patterns[bank][step]` — 8 banks (A–H) × 32 steps. Four *tracks* each play one
+bank (`trackBanks`) and can be muted (`trackMuted`). Each track can carry its own **sound**
+(`trackSoundIds`/`trackSoundLocks`): a patch flattened to voice-level P-Locks (see `main.js`
+`flattenPatchToLocks`) merged *under* the step locks at schedule time — that's what makes the
+tracks multi-timbral while effects/LFOs stay global. Tracks on the same bank with the same sound
+are triggered only once; with different sounds they layer.
 
 ### Velocity
 
@@ -134,7 +137,7 @@ bank it is only triggered once.
 | Member | Description |
 |---|---|
 | `constructor(audioContext)` | Builds master chain, effects, both LFOs (initialised from `params`) |
-| `playNote(note, time, duration=0, pLocks={}, velocity=1)` | Creates/updates a voice group. Poly: spawns `unison` voices (detuned/panned), steals the oldest note above the voice limit. Mono/Legato: reuses `monoVoice` with glide; Mono retriggers envelopes click-free, Legato doesn't. Held keys (duration 0) feed the mono note memory. No-op while suspended |
+| `playNote(note, time, duration=0, pLocks={}, velocity=1)` | Creates/updates a voice group. Poly: spawns `unison` voices (detuned/panned), steals the oldest note above the voice limit (`maxVoices` 16). Mono/Legato: reuses `monoVoice` with glide; Mono retriggers envelopes click-free, Legato doesn't. Held keys (duration 0) feed the mono note memory. No-op while suspended |
 | `stopNote(note, time)` | Releases the matching voice group; in mono, falls back legato to the most recent still-held key (note memory) |
 | `slideNote(fromNote, toNote, time)` | 303-style slide: glides the sounding voice (incl. unison siblings) without retriggering — used by tie steps with a different pitch |
 | `stopAllNotes()` | Panic — releases everything |
@@ -181,8 +184,9 @@ within the next 100 ms (`scheduleAheadTime`) at sample-accurate AudioContext tim
 | `setTrackBank(track, bank)` | Quantized while playing (returns `'queued'`), immediate otherwise |
 | `setPatternLength(bank, len)` | Loop length 1–32 per bank |
 | `setSongMode / songChain` | Song scenes `{banks:[a,b], repeats}` applied at loop boundaries |
-| `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized into track 1's bank while playing |
-| `serialize()` / `loadState(state)` | Project persistence (patterns, lengths, banks, mutes, transport, song) |
+| `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized while playing — into `recTarget`'s bank |
+| `setTrackSound(track, id, locks)` | Assigns a per-track sound (patch id + flattened voice-param locks; null = LIVE) |
+| `serialize()` / `loadState(state)` | Project persistence (patterns, lengths, banks, mutes, track sounds, transport, song); merges per index so older projects with fewer tracks/banks load cleanly |
 | `onStep(step)` | UI callback (step indicator), `-1` on stop |
 
 Arp modes are computed per step from the held notes (sorted/expanded to `arpOctaves`):
