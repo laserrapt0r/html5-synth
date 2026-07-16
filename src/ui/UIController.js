@@ -204,13 +204,26 @@ export class UIController {
                 const min = parseFloat(slider.min) || 0;
                 const max = parseFloat(slider.max) || 100;
                 let val = parseFloat(slider.value);
-                
-                if (e.deltaY > 0) {
-                    val = Math.max(min, val - step);
-                } else if (e.deltaY < 0) {
-                    val = Math.min(max, val + step);
+
+                // Wheel acceleration: spinning fast takes bigger steps — capped
+                // at 5% of the range per notch so wide sliders (TUNE: ±1200)
+                // become usable while small ones keep single-step precision.
+                const now = performance.now();
+                const dt = now - (slider._lastWheelTime || 0);
+                slider._lastWheelTime = now;
+                let mult = 1;
+                if (dt < 150) {
+                    const maxStepsPerNotch = Math.max(1, Math.floor(((max - min) * 0.05) / step));
+                    mult = Math.min(Math.max(1, Math.round(250 / Math.max(dt, 5))), maxStepsPerNotch);
                 }
-                
+                const delta = step * mult;
+
+                if (e.deltaY > 0) {
+                    val = Math.max(min, val - delta);
+                } else if (e.deltaY < 0) {
+                    val = Math.min(max, val + delta);
+                }
+
                 if (val !== parseFloat(slider.value)) {
                     slider.value = val;
                     updateDisplay();
