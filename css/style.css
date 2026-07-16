@@ -1077,3 +1077,52 @@ input[type="range"].dimmed {
     opacity: 0.3;
     pointer-events: none;
 }
+
+
+/* --- Step info line (probability / ratchet / trig condition) --- */
+.step-info {
+    position: absolute;
+    bottom: 1px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.5rem;
+    font-family: var(--font-mono);
+    color: var(--neon-yellow);
+    pointer-events: none;
+    text-shadow: 0 0 3px rgba(255, 234, 0, 0.5);
+}
+
+/* --- Keyboard octave shift --- */
+.kb-oct {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    width: 30px;
+    flex-shrink: 0;
+}
+.kb-oct .mini-btn {
+    width: 100%;
+    padding: 1px 0;
+}
+.kb-oct span {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--neon-cyan);
+}
+
+/* --- Audio recording button state --- */
+#audio-rec.recording {
+    color: #ff2a2a;
+    border-color: #ff2a2a;
+    box-shadow: 0 0 8px rgba(255, 42, 42, 0.6);
+    animation: rec-pulse 1s infinite alternate;
+}
+
+/* --- Metronome toggle active --- */
+#seq-click.playing {
+    color: var(--neon-lime);
+    border-color: var(--neon-lime);
+    box-shadow: 0 0 6px rgba(57, 255, 20, 0.4);
+}

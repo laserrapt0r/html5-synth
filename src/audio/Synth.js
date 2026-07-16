@@ -8,18 +8,32 @@ export class Synth {
         // Master Volume
         this.masterGain = this.ctx.createGain();
         this.masterGain.gain.value = 0.7;
-        
+
+        // Master limiter: 4 tracks x unison can easily exceed 0 dBFS — a
+        // brickwall compressor catches that instead of hard digital clipping
+        this.limiter = this.ctx.createDynamicsCompressor();
+        this.limiter.threshold.value = -3;
+        this.limiter.knee.value = 0;
+        this.limiter.ratio.value = 20;
+        this.limiter.attack.value = 0.002;
+        this.limiter.release.value = 0.15;
+
         // Analyser for Oscilloscope
         this.analyser = this.ctx.createAnalyser();
         this.analyser.fftSize = 2048;
 
         // Effects Chain
         this.effects = new Effects(this.ctx);
-        
-        // Routing: Voices -> Effects -> Master Gain -> Analyser -> Output
+
+        // Routing: Voices -> Effects -> Master Gain -> Limiter -> Analyser -> Output
         this.effects.output.connect(this.masterGain);
-        this.masterGain.connect(this.analyser);
+        this.masterGain.connect(this.limiter);
+        this.limiter.connect(this.analyser);
         this.analyser.connect(this.ctx.destination);
+
+        // Tap for audio recording (post-limiter, exactly what you hear)
+        this.recorderDest = this.ctx.createMediaStreamDestination();
+        this.limiter.connect(this.recorderDest);
 
         // Global Parameters
         this.params = {
@@ -28,14 +42,15 @@ export class Synth {
             vco2: { on: true, wave: 'square', oct: -1, tune: 7, level: 0.6 },
             vco3: { on: true, wave: 'sine', oct: 1, tune: -7, level: 0.4 },
             noise: { type: 'white', level: 0 },
-            filter: { type: 'lowpass', cutoff: 1500, res: 2 },
+            filter: { type: 'lowpass', cutoff: 1500, res: 2, keytrack: 0, slope: 12 },
             fEnv: { a: 0.1, d: 0.3, s: 0.2, r: 0.5, amt: 2500 },
             aEnv: { a: 0.05, d: 0.5, s: 0.8, r: 1.0 },
             pEnv: { d: 0.1, amt: 0 },
-            lfo1: { wave: 'sine', rate: 5, pitch: 0, cutoff: 0 },
-            lfo2: { wave: 'sine', rate: 2, amp: 0 },
+            lfo1: { wave: 'sine', rate: 5, sync: 0, pitch: 0, cutoff: 0 },
+            lfo2: { wave: 'sine', rate: 2, sync: 0, amp: 0 },
             effects: {
                 'dist-on': false, 'dist-drive': 0,
+                'chorus-on': false, 'chorus-rate': 0.6, 'chorus-depth': 0.5, 'chorus-mix': 0.5,
                 'delay-on': false, 'delay-sync': 0, 'delay-time': 0.3, 'delay-fb': 0.4, 'delay-mix': 0.3,
                 'reverb-on': false, 'reverb-mix': 0.2
             }
@@ -51,6 +66,11 @@ export class Synth {
         this.heldNotes = []; // mono/legato note memory (physically held keys, in press order)
         this.lastNoteTime = 0;
         this._panFlip = false;
+
+        // MIDI performance state
+        this.sustainOn = false;
+        this._sustained = []; // voices held only by the pedal
+        this._monoSustainPending = false;
 
         // LFO 1
         this.lfo1 = this.ctx.createOscillator();
@@ -87,11 +107,47 @@ export class Synth {
         this.lfo2AmpGain.connect(this.masterGain.gain);
         this.lfo2.start();
 
+        // MIDI pitch bend: a constant source (in cents) summed into every
+        // voice's pitchTarget — bends all sounding and future notes at once
+        this.bendSource = this.ctx.createConstantSource();
+        this.bendSource.offset.value = 0;
+        this.bendSource.start();
+
+        // MIDI mod wheel: adds LFO1 vibrato on top of the panel depths
+        this.modWheelGain = this.ctx.createGain();
+        this.modWheelGain.gain.value = 0;
+        this.lfo1.connect(this.modWheelGain);
+
         // Apply initial params to LFO1 (type, rate) and all mod depths.
         // Without this, lfo1 runs at the oscillator default (440 Hz sine) and
         // the mod gains sit at their default of 1 (full depth) instead of 0.
         this.updateLFO1();
         this.updateLFO2();
+    }
+
+    // MIDI performance inputs
+    setPitchBend(semitones) {
+        const now = this.ctx.currentTime;
+        this.bendSource.offset.cancelScheduledValues(now);
+        this.bendSource.offset.setTargetAtTime(semitones * 100, now, 0.005);
+    }
+
+    setModWheel(value) {
+        // Up to ~50 cents of extra vibrato at full wheel
+        this._smoothSet(this.modWheelGain.gain, Math.max(0, Math.min(1, value)) * 50);
+    }
+
+    setSustain(on) {
+        this.sustainOn = !!on;
+        if (!on) {
+            const t = this.ctx.currentTime;
+            this._sustained.forEach(v => this._stopVoiceGroup(v, t));
+            this._sustained = [];
+            if (this._monoSustainPending && this.monoVoice && this.heldNotes.length === 0) {
+                this.monoVoice.stop(t);
+            }
+            this._monoSustainPending = false;
+        }
     }
 
     // Connect the global LFO mod gains into a voice and remember the
@@ -100,11 +156,22 @@ export class Synth {
         this.lfo1PitchGain.connect(voice.pitchTarget);
         this.lfo1CutoffGain.connect(voice.filterTarget);
         this.lfo1PwmGain.connect(voice.vco1DcOffset.offset);
+        this.bendSource.connect(voice.pitchTarget);
+        this.modWheelGain.connect(voice.pitchTarget);
         voice.externalConnections.push(
             [this.lfo1PitchGain, voice.pitchTarget],
             [this.lfo1CutoffGain, voice.filterTarget],
-            [this.lfo1PwmGain, voice.vco1DcOffset.offset]
+            [this.lfo1PwmGain, voice.vco1DcOffset.offset],
+            [this.bendSource, voice.pitchTarget],
+            [this.modWheelGain, voice.pitchTarget]
         );
+    }
+
+    // Effective LFO rate in Hz — sync > 0 means the rate is a note length in beats
+    _lfoRate(cfg) {
+        const sync = parseFloat(cfg.sync);
+        if (sync > 0) return 1 / (sync * (60 / this.bpm));
+        return parseFloat(cfg.rate);
     }
 
     noteToFreq(note) {
@@ -237,16 +304,25 @@ export class Synth {
 
     stopNote(note, time) {
         if (this.params.master.polyphony === 'poly') {
-            if (this.activeVoices[note]) {
-                this._stopVoiceGroup(this.activeVoices[note], time);
+            const voice = this.activeVoices[note];
+            if (!voice) return;
+            if (this.sustainOn) {
+                // Pedal holds the voice; released from activeVoices so a
+                // re-pressed key starts a fresh voice on top
+                this._sustained.push(voice);
                 delete this.activeVoices[note];
+                return;
             }
+            this._stopVoiceGroup(voice, time);
+            delete this.activeVoices[note];
         } else {
             this.heldNotes = this.heldNotes.filter(n => n !== note);
             if (this.monoVoice && this.currentMonoNote === note) {
                 if (this.heldNotes.length > 0) {
                     // Note memory: fall back to the most recent still-held key
                     this.playNote(this.heldNotes[this.heldNotes.length - 1], time);
+                } else if (this.sustainOn) {
+                    this._monoSustainPending = true;
                 } else {
                     this.monoVoice.stop(time);
                 }
@@ -259,6 +335,9 @@ export class Synth {
         Object.values(this.activeVoices).forEach(voice => this._stopVoiceGroup(voice, time));
         this.activeVoices = {};
         this.heldNotes = [];
+        this._sustained.forEach(v => this._stopVoiceGroup(v, time));
+        this._sustained = [];
+        this._monoSustainPending = false;
         if (this.monoVoice) {
             this.monoVoice.stop(time);
             this.monoVoice = null;
@@ -296,7 +375,7 @@ export class Synth {
                     }
                     this.lfo1RndSource.offset.value = (Math.random() * 2) - 1;
                     // Rate to ms
-                    const ms = 1000 / Math.max(0.1, this.params.lfo1.rate);
+                    const ms = 1000 / Math.max(0.1, this._lfoRate(this.params.lfo1));
                     this.lfo1RndInterval = setTimeout(updateSAndH, ms);
                 };
                 updateSAndH();
@@ -306,7 +385,7 @@ export class Synth {
             this.lfo1RndInterval = null;
             this.lfo1RndSource.offset.value = 0; // Reset DC offset
             this.lfo1.type = wave;
-            this.lfo1.frequency.value = this.params.lfo1.rate;
+            this.lfo1.frequency.value = this._lfoRate(this.params.lfo1);
             this.lfo1.connect(this.lfo1PitchGain);
             this.lfo1.connect(this.lfo1CutoffGain);
             this.lfo1.connect(this.lfo1PwmGain);
@@ -326,7 +405,7 @@ export class Synth {
                         return;
                     }
                     this.lfo2RndSource.offset.value = (Math.random() * 2) - 1;
-                    const ms = 1000 / Math.max(0.1, this.params.lfo2.rate);
+                    const ms = 1000 / Math.max(0.1, this._lfoRate(this.params.lfo2));
                     this.lfo2RndInterval = setTimeout(updateSAndH, ms);
                 };
                 updateSAndH();
@@ -336,7 +415,7 @@ export class Synth {
             this.lfo2RndInterval = null;
             this.lfo2RndSource.offset.value = 0; // Reset DC offset
             this.lfo2.type = wave;
-            this.lfo2.frequency.value = this.params.lfo2.rate;
+            this.lfo2.frequency.value = this._lfoRate(this.params.lfo2);
             this.lfo2.connect(this.lfo2AmpGain);
         }
     }
@@ -369,6 +448,9 @@ export class Synth {
 
             if (key === 'dist-on' || key === 'dist-drive') {
                 this.effects.setDistortion(fx['dist-on'], fx['dist-drive']);
+            }
+            if (key === 'chorus-on' || key === 'chorus-rate' || key === 'chorus-depth' || key === 'chorus-mix') {
+                this.effects.setChorus(fx['chorus-on'], fx['chorus-rate'], fx['chorus-depth'], fx['chorus-mix']);
             }
             if (key === 'delay-on' || key === 'delay-time' || key === 'delay-fb' || key === 'delay-mix' || key === 'delay-sync') {
                 // Sync > 0 means the delay time is a note length in beats

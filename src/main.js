@@ -207,6 +207,44 @@ importInput.addEventListener('change', async () => {
     importInput.value = '';
 });
 
+// Audio export: record the master output (post-limiter) to a file
+const audioRecBtn = document.getElementById('audio-rec');
+if (audioRecBtn && window.MediaRecorder) {
+    let mediaRecorder = null;
+    let chunks = [];
+
+    audioRecBtn.addEventListener('click', () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            return;
+        }
+        chunks = [];
+        mediaRecorder = new MediaRecorder(synth.recorderDest.stream);
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) chunks.push(e.data);
+        };
+        mediaRecorder.onstop = () => {
+            const type = mediaRecorder.mimeType || 'audio/webm';
+            const ext = type.includes('ogg') ? 'ogg' : 'webm';
+            const blob = new Blob(chunks, { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `neon-synth-recording.${ext}`;
+            a.click();
+            URL.revokeObjectURL(url);
+            audioRecBtn.classList.remove('recording');
+            audioRecBtn.textContent = '● REC AUDIO';
+        };
+        mediaRecorder.start();
+        audioRecBtn.classList.add('recording');
+        audioRecBtn.textContent = '■ STOP & SAVE';
+    });
+} else if (audioRecBtn) {
+    audioRecBtn.disabled = true;
+    audioRecBtn.title = 'MediaRecorder is not supported in this browser';
+}
+
 // Custom Osc Logic
 oscDraw = new OscDraw('osc-canvas', synth);
 
@@ -324,6 +362,7 @@ const isTypingTarget = (el) => {
 
 window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // shortcuts (undo etc.) must not play notes
     if (isTypingTarget(e.target)) return;
     if (audioContext && codeMap[e.code]) {
         const note = codeMap[e.code];

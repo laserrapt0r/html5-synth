@@ -24,9 +24,9 @@ export class Sequencer {
         // Time division: fraction of a beat per step (0.25 = 1/16, 0.5 = 1/8, 0.125 = 1/32)
         this.timeDiv = 0.25;
         
-        // Sequence Data: 4 Patterns of 32 steps each
+        // Sequence Data: 8 banks of 32 steps each
         this.patterns = Array.from({length: this.numPatterns}, () =>
-            Array.from({length: this.numSteps}, () => ({ active: false, note: 60, tie: false, accent: false, locks: {} }))
+            Array.from({length: this.numSteps}, () => this._emptyStep())
         );
         
         this.trackBanks = Array.from({length: this.numTracks}, (_, i) => i); // track n plays bank n by default
@@ -54,6 +54,12 @@ export class Sequencer {
         this.recArmed = false;
         this.recCursor = 0;
         this.recTarget = 0; // which track receives recorded notes
+
+        // Metronome (also provides the count-in when recording)
+        this.metronomeOn = false;
+
+        // Absolute step counter since play-from-stop (for trig conditions)
+        this.absStep = 0;
 
         // Timing scheduling
         this.lookahead = 25.0; // ms
@@ -83,10 +89,12 @@ export class Sequencer {
     setBpm(bpm) {
         this.bpm = bpm;
         this.synth.bpm = parseFloat(bpm) || 120;
-        // Re-apply a BPM-synced delay time
+        // Re-apply BPM-synced delay and LFO rates
         if (parseFloat(this.synth.params.effects['delay-sync']) > 0) {
             this.synth.updateParams('effects', 'delay-time', this.synth.params.effects['delay-time']);
         }
+        if (parseFloat(this.synth.params.lfo1.sync) > 0) this.synth.updateLFO1();
+        if (parseFloat(this.synth.params.lfo2.sync) > 0) this.synth.updateLFO2();
     }
 
     setPatternLength(bankIndex, length) {
@@ -103,6 +111,46 @@ export class Sequencer {
     setRecording(on) {
         this.recArmed = !!on;
         if (!on) this.recCursor = 0;
+    }
+
+    _emptyStep() {
+        return { active: false, note: 60, tie: false, accent: false, prob: 1, ratchet: 1, cond: null, locks: {} };
+    }
+
+    // --- Pattern tools ---
+
+    copyPattern(bankIdx) {
+        return {
+            steps: JSON.parse(JSON.stringify(this.patterns[bankIdx])),
+            length: this.patternLengths[bankIdx]
+        };
+    }
+
+    pastePattern(bankIdx, data) {
+        if (!data || !Array.isArray(data.steps)) return;
+        data.steps.forEach((step, i) => {
+            if (i < this.numSteps) this.patterns[bankIdx][i] = { ...this._emptyStep(), ...JSON.parse(JSON.stringify(step)) };
+        });
+        if (data.length) this.patternLengths[bankIdx] = data.length;
+    }
+
+    clearPattern(bankIdx) {
+        for (let i = 0; i < this.numSteps; i++) {
+            this.patterns[bankIdx][i] = this._emptyStep();
+        }
+    }
+
+    // Rotate the pattern by one step within its loop length
+    shiftPattern(bankIdx, direction) {
+        const len = this.patternLengths[bankIdx];
+        const steps = this.patterns[bankIdx];
+        const part = steps.slice(0, len);
+        if (direction > 0) {
+            part.unshift(part.pop());
+        } else {
+            part.push(part.shift());
+        }
+        for (let i = 0; i < len; i++) steps[i] = part[i];
     }
 
     setTrackSound(trackIndex, id, locks) {
@@ -226,8 +274,9 @@ export class Sequencer {
     nextNote() {
         const secondsPerBeat = 60.0 / this.bpm;
         this.nextNoteTime += this.timeDiv * secondsPerBeat;
-        
+
         this.currentStep++;
+        this.absStep++;
         if (this.currentStep === this.numSteps) {
             this.currentStep = 0;
         }
@@ -276,6 +325,20 @@ export class Sequencer {
         }
     }
 
+    // Short metronome blip straight into the master bus (skips the effects)
+    _click(time, accent) {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = accent ? 1800 : 1100;
+        g.gain.setValueAtTime(0.2, time);
+        g.gain.setTargetAtTime(0, time + 0.005, 0.015);
+        osc.connect(g);
+        g.connect(this.synth.masterGain);
+        osc.start(time);
+        osc.stop(time + 0.08);
+    }
+
     scheduleNote(stepNumber, time) {
         if (stepNumber === 0) {
             this._applyQueuedBanks();
@@ -283,6 +346,13 @@ export class Sequencer {
 
         const secondsPerBeat = 60.0 / this.bpm;
         const stepDuration = this.timeDiv * secondsPerBeat;
+
+        if (this.metronomeOn) {
+            const stepsPerBeat = Math.max(1, Math.round(1 / this.timeDiv));
+            if (stepNumber % stepsPerBeat === 0) {
+                this._click(time, stepNumber % (stepsPerBeat * 4) === 0);
+            }
+        }
         
         // Swing logic: delay odd steps
         let swingDelay = 0;
@@ -402,17 +472,36 @@ export class Sequencer {
                 }
 
                 if (stepData.active) {
-                    // Count tie chain to extend gate duration
-                    const tieCount = this._countTieChain(bankIdx, pos, len);
-                    const totalSteps = 1 + tieCount;
-                    const gateDuration = (stepDuration * totalSteps) * this.gate;
+                    // Trig condition: play only on matching loop iterations (e.g. '1:2')
+                    if (stepData.cond) {
+                        const [n, m] = String(stepData.cond).split(':').map(Number);
+                        if (m > 1 && (Math.floor(this.absStep / len) % m) !== (n - 1)) continue;
+                    }
+
+                    // Probability: chance that this step triggers at all
+                    const prob = stepData.prob !== undefined ? parseFloat(stepData.prob) : 1;
+                    if (prob < 1 && Math.random() > prob) continue;
 
                     // Track sound (multi-timbrality) merged under the step's own locks
                     const soundLocks = this.trackSoundLocks[trackIndex];
                     const locks = soundLocks ? { ...soundLocks, ...stepData.locks } : stepData.locks;
+                    const velocity = stepData.accent ? ACCENT_VELOCITY : 1;
 
-                    this.synth.playNote(stepData.note, scheduledTime, gateDuration, locks,
-                        stepData.accent ? ACCENT_VELOCITY : 1);
+                    const ratchet = Math.max(1, parseInt(stepData.ratchet) || 1);
+                    if (ratchet > 1) {
+                        // Ratchet: n evenly spaced retriggers within the step
+                        const hitDuration = (stepDuration / ratchet) * this.gate;
+                        for (let r = 0; r < ratchet; r++) {
+                            this.synth.playNote(stepData.note, scheduledTime + r * (stepDuration / ratchet),
+                                hitDuration, locks, velocity);
+                        }
+                    } else {
+                        // Count tie chain to extend gate duration
+                        const tieCount = this._countTieChain(bankIdx, pos, len);
+                        const totalSteps = 1 + tieCount;
+                        const gateDuration = (stepDuration * totalSteps) * this.gate;
+                        this.synth.playNote(stepData.note, scheduledTime, gateDuration, locks, velocity);
+                    }
                 }
             }
         }
@@ -450,6 +539,16 @@ export class Sequencer {
         if (this.ctx.state !== 'running') return;
         this.isPlaying = true;
         this.nextNoteTime = this.ctx.currentTime + 0.05; // start shortly after
+
+        // Count-in: with REC armed, one bar of clicks before the first step
+        if (this.recArmed && this.currentStep === 0) {
+            const beat = 60.0 / this.bpm;
+            for (let b = 0; b < 4; b++) {
+                this._click(this.nextNoteTime + b * beat, b === 0);
+            }
+            this.nextNoteTime += 4 * beat;
+        }
+
         this.scheduler();
         this._updateTransportUI();
     }
@@ -468,6 +567,7 @@ export class Sequencer {
         this.autoStartedByArp = false;
         clearTimeout(this.timerID);
         this.currentStep = 0;
+        this.absStep = 0;
         this.songIndex = 0;
         this.songLoopCount = 0;
         this._songFirst = true;
@@ -486,6 +586,7 @@ export class Sequencer {
             trackBanks: [...this.trackBanks],
             trackMuted: [...this.trackMuted],
             trackSoundIds: [...this.trackSoundIds],
+            metronomeOn: this.metronomeOn,
             bpm: this.bpm,
             gate: this.gate,
             timeDiv: this.timeDiv,
@@ -506,6 +607,9 @@ export class Sequencer {
                         note: typeof step.note === 'number' ? step.note : 60,
                         tie: !!step.tie,
                         accent: !!step.accent,
+                        prob: step.prob !== undefined ? Math.max(0, Math.min(1, parseFloat(step.prob))) : 1,
+                        ratchet: Math.max(1, Math.min(4, parseInt(step.ratchet) || 1)),
+                        cond: step.cond || null,
                         locks: step.locks || {}
                     };
                 });
@@ -530,6 +634,7 @@ export class Sequencer {
             state.trackSoundIds.forEach((id, i) => { if (i < this.numTracks) this.trackSoundIds[i] = id || null; });
             // trackSoundLocks are re-resolved from the ids by main.js after loading
         }
+        this.metronomeOn = !!state.metronomeOn;
         if (state.bpm) this.setBpm(state.bpm);
         if (state.gate) this.gate = parseFloat(state.gate);
         if (state.timeDiv) this.timeDiv = parseFloat(state.timeDiv);

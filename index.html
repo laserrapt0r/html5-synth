@@ -268,6 +268,17 @@
                                 <input type="range" id="lfo1-rate" min="0.1" max="30" step="0.1" value="5">
                             </div>
                             <div class="control-group">
+                                <label>SYNC</label>
+                                <select id="lfo1-sync" class="preset-dropdown" style="font-size: 0.65rem; padding: 2px;" title="Sync the LFO rate to the BPM">
+                                    <option value="0" selected>FREE</option>
+                                    <option value="4">1/1</option>
+                                    <option value="2">1/2</option>
+                                    <option value="1">1/4</option>
+                                    <option value="0.5">1/8</option>
+                                    <option value="0.25">1/16</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
                                 <label>-> PITCH</label>
                                 <input type="range" id="lfo1-pitch" min="0" max="200" step="1" value="0">
                             </div>
@@ -299,6 +310,17 @@
                             <div class="control-group">
                                 <label>RATE</label>
                                 <input type="range" id="lfo2-rate" min="0.1" max="30" step="0.1" value="2">
+                            </div>
+                            <div class="control-group">
+                                <label>SYNC</label>
+                                <select id="lfo2-sync" class="preset-dropdown" style="font-size: 0.65rem; padding: 2px;" title="Sync the LFO rate to the BPM">
+                                    <option value="0" selected>FREE</option>
+                                    <option value="4">1/1</option>
+                                    <option value="2">1/2</option>
+                                    <option value="1">1/4</option>
+                                    <option value="0.5">1/8</option>
+                                    <option value="0.25">1/16</option>
+                                </select>
                             </div>
                             <div class="control-group">
                                 <label>-> AMP</label>
@@ -335,6 +357,19 @@
                         <div class="control-group">
                             <label>RES (Q)</label>
                             <input type="range" id="filter-res" min="0" max="30" step="0.1" value="2">
+                        </div>
+                        <div class="control-group">
+                            <label>KEY TRK</label>
+                            <input type="range" id="filter-keytrack" min="0" max="1" step="0.05" value="0" title="Keyboard tracking: filter follows the played pitch">
+                        </div>
+                        <div class="control-group">
+                            <label>SLOPE</label>
+                            <div class="radio-group" style="margin-bottom: 0;">
+                                <input type="radio" name="filter-slope" id="fs-12" value="12" checked>
+                                <label for="fs-12" class="wave-btn" style="min-width: 30px;">12dB</label>
+                                <input type="radio" name="filter-slope" id="fs-24" value="24">
+                                <label for="fs-24" class="wave-btn" style="min-width: 30px;">24dB</label>
+                            </div>
                         </div>
                     </div>
                     
@@ -409,6 +444,31 @@
                             </div>
                         </div>
                         
+                        <!-- Chorus / Ensemble -->
+                        <div class="fx-module">
+                            <div class="fx-header">
+                                <label class="switch">
+                                    <input type="checkbox" id="chorus-on">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span>CHORUS</span>
+                            </div>
+                            <div class="controls-row">
+                                <div class="control-group">
+                                    <label>RATE</label>
+                                    <input type="range" id="chorus-rate" min="0.1" max="3" step="0.1" value="0.6">
+                                </div>
+                                <div class="control-group">
+                                    <label>DEPTH</label>
+                                    <input type="range" id="chorus-depth" min="0" max="1" step="0.01" value="0.5">
+                                </div>
+                                <div class="control-group">
+                                    <label>MIX</label>
+                                    <input type="range" id="chorus-mix" min="0" max="1" step="0.01" value="0.5">
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Delay -->
                         <div class="fx-module">
                             <div class="fx-header">
@@ -490,8 +550,15 @@
 
         <!-- On-Screen Keyboard -->
         <section class="keyboard-panel panel module" style="height: 70px; flex-shrink: 0; padding: 5px;">
-            <div class="keyboard" id="piano-keyboard">
-                <!-- Keys generated by JS -->
+            <div style="display: flex; gap: 5px; height: 100%;">
+                <div class="kb-oct" title="Octave shift for the on-screen and computer keyboard">
+                    <button id="kb-oct-up" class="mini-btn">+</button>
+                    <span id="kb-oct-display">0</span>
+                    <button id="kb-oct-down" class="mini-btn">−</button>
+                </div>
+                <div class="keyboard" id="piano-keyboard" style="flex: 1;">
+                    <!-- Keys generated by JS -->
+                </div>
             </div>
         </section>
 
@@ -537,6 +604,8 @@
                         </select>
                     </div>
 
+                    <button id="seq-click" class="mini-btn" title="Metronome (with REC armed: one bar count-in before recording)">CLICK</button>
+
                     <div class="control-group horizontal" style="gap: 5px; border-left: 1px solid #333; padding-left: 10px;">
                         <label>ARP</label>
                         <label class="switch">
@@ -581,6 +650,17 @@
                     <button id="song-add" class="mini-btn" title="Append current bank selection as a new scene">+ ADD</button>
                     <button id="song-clear" class="mini-btn" title="Clear the song chain">CLEAR</button>
                     <div id="song-chain" style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;"></div>
+
+                    <!-- Pattern tools operate on the REC target track's bank -->
+                    <div style="margin-left: auto; display: flex; gap: 4px; align-items: center;">
+                        <label style="font-size: 0.6rem; letter-spacing: 1px;" title="Tools act on the REC target track's bank">TOOLS</label>
+                        <button id="pat-copy" class="mini-btn" title="Copy the target track's pattern">COPY</button>
+                        <button id="pat-paste" class="mini-btn" title="Paste into the target track's pattern">PASTE</button>
+                        <button id="pat-clear" class="mini-btn" title="Clear the target track's pattern">CLR</button>
+                        <button id="pat-shift-l" class="mini-btn" title="Rotate pattern one step left">◀</button>
+                        <button id="pat-shift-r" class="mini-btn" title="Rotate pattern one step right">▶</button>
+                        <button id="audio-rec" class="mini-btn" style="margin-left: 10px;" title="Record the master output to an audio file">● REC AUDIO</button>
+                    </div>
                 </div>
             </div>
         </section>

@@ -28,7 +28,8 @@ no dependencies. `index.html` loads `src/main.js`, which wires everything togeth
                                              │   Effects   │ dist → delay → reverb
                                              └─────────────┘
                                                     │
-                                     masterGain → analyser → destination
+                              masterGain → limiter → analyser → destination
+                                          └→ recorderDest (audio export tap)
                                                     │
                                              ┌─────────────┐
                                              │ Visualizer  │ (oscilloscope)
@@ -66,7 +67,7 @@ Noise ──► noiseGain ┘
 | `src/Persistence.js` | localStorage autosave (project state), user patches, JSON export/import |
 | `src/audio/Synth.js` | Voice management, global LFOs, parameter store (`params`), effects wiring |
 | `src/audio/Voice.js` | One playing note: oscillators, filter, envelopes, PWM, noise, cleanup |
-| `src/audio/Effects.js` | Distortion → Delay → Reverb chain with per-effect bypass |
+| `src/audio/Effects.js` | Distortion → Chorus → Delay → Reverb chain with per-effect bypass |
 | `src/audio/Sequencer.js` | Lookahead scheduler, patterns/steps, ties, accents, arpeggiator |
 | `src/audio/Presets.js` | Static preset definitions (full `params` snapshots) |
 | `src/ui/UIController.js` | Binds every control to `synth.updateParams`, step grid, P-Lock editing, on-screen keyboard |
@@ -88,13 +89,14 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
   vco2:    { on, wave, oct, tune, level },
   vco3:    { on, wave, oct, tune, level },
   noise:   { type: 'white'|'pink', level },
-  filter:  { type, cutoff, res },
+  filter:  { type, cutoff, res, keytrack (0..1), slope (12|24) },
   fEnv:    { a, d, s, r, amt },          // filter envelope (amt in Hz, can be negative)
   aEnv:    { a, d, s, r },               // amp envelope
   pEnv:    { d, amt },                   // pitch envelope (amt in semitones ±48, decay-only)
-  lfo1:    { wave, rate, pitch, cutoff },// wave 'random' = S&H mode
-  lfo2:    { wave, rate, amp },
-  effects: { 'dist-on', 'dist-drive', 'delay-on', 'delay-sync' (0=free, else beats), 'delay-time', 'delay-fb', 'delay-mix',
+  lfo1:    { wave, rate, sync (0=free, else beats), pitch, cutoff }, // wave 'random' = S&H
+  lfo2:    { wave, rate, sync, amp },
+  effects: { 'dist-on', 'dist-drive', 'chorus-on', 'chorus-rate', 'chorus-depth', 'chorus-mix',
+             'delay-on', 'delay-sync' (0=free, else beats), 'delay-time', 'delay-fb', 'delay-mix',
              'reverb-on', 'reverb-mix' }
 }
 ```
@@ -102,7 +104,7 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
 ### Sequencer step
 
 ```js
-{ active: false, note: 60, tie: false, accent: false, locks: {} }
+{ active: false, note: 60, tie: false, accent: false, prob: 1, ratchet: 1, cond: null, locks: {} }
 ```
 
 - `note` — MIDI note number.
@@ -110,6 +112,9 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
   multiply the gate duration of the first (non-tie) step. A tie step whose `note` differs
   from the previous chain element triggers a 303-style **slide** (`Synth.slideNote`).
 - `accent` — plays the step with `ACCENT_VELOCITY` (1.25): louder and with a wider filter sweep.
+- `prob` — trigger probability (0..1); `ratchet` — 1–4 evenly spaced retriggers within the step
+  (bypasses tie-gate extension); `cond` — trig condition `'n:m'`, plays when
+  `floor(absStep/len) % m === n-1`.
 - `locks` — P-Locks: `{ "group.param": value }`, e.g. `{ "filter.cutoff": "400" }`.
   Applied per note via `Voice.getParam`, which prefers a lock over `Synth.params`.
   Only voice-level groups are lockable (`vco1-3`, `noise`, `filter`, `fEnv`, `aEnv`, `pEnv`).
@@ -145,6 +150,8 @@ are triggered only once; with different sounds they layer.
 | `updateLFO1()` / `updateLFO2()` | Re-apply LFO wave/rate/depths; manage the S&H timer for `random` mode |
 | `_connectLFOs(voice)` | Connects global LFO gains into a voice and records the connections on `voice.externalConnections` for later cleanup |
 | `_stopVoiceGroup(voice, time)` | Stops a primary voice together with its unison siblings |
+| `setPitchBend(st)` / `setModWheel(v)` / `setSustain(on)` | MIDI performance: bend via a shared ConstantSource into every `pitchTarget`, wheel adds LFO1 vibrato, pedal defers note-offs |
+| `limiter` / `recorderDest` | Master brickwall compressor (-3 dB, 20:1) and the MediaStream tap for the audio-export recorder |
 | `bpm` | Tempo mirror (set by the Sequencer) used to compute BPM-synced delay times (`effects['delay-sync']` in beats) |
 
 ### `Voice` (`src/audio/Voice.js`)
@@ -184,7 +191,9 @@ within the next 100 ms (`scheduleAheadTime`) at sample-accurate AudioContext tim
 | `setTrackBank(track, bank)` | Quantized while playing (returns `'queued'`), immediate otherwise |
 | `setPatternLength(bank, len)` | Loop length 1–32 per bank |
 | `setSongMode / songChain` | Song scenes `{banks:[a,b], repeats}` applied at loop boundaries |
-| `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized while playing — into `recTarget`'s bank |
+| `setRecording(on)` / `recordNote(note)` | REC: step entry while stopped, beat-quantized while playing — into `recTarget`'s bank; `play()` with REC armed prepends a one-bar count-in |
+| `copyPattern/pastePattern/clearPattern/shiftPattern` | Pattern tools (UIController keeps the clipboard and the undo/redo snapshot stacks) |
+| `metronomeOn` / `_click(time, accent)` | Metronome blips straight into the master bus |
 | `setTrackSound(track, id, locks)` | Assigns a per-track sound (patch id + flattened voice-param locks; null = LIVE) |
 | `serialize()` / `loadState(state)` | Project persistence (patterns, lengths, banks, mutes, track sounds, transport, song); merges per index so older projects with fewer tracks/banks load cleanly |
 | `onStep(step)` | UI callback (step indicator), `-1` on stop |

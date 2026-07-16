@@ -5,10 +5,71 @@ export class UIController {
         this.editStepIndex = null;
         this.isUpdatingUI = false;
         this.paramBindings = this.getParamBindings();
-        
+
+        // Pattern edit undo/redo (snapshot stacks)
+        this.undoStack = [];
+        this.redoStack = [];
+        this.patternClipboard = null;
+        this.keyOctave = 0;
+
         this.initControls();
         this.initSequencerGrid();
         this.initKeyboard();
+    }
+
+    // --- Undo/redo: snapshots of all patterns + lengths ---
+
+    _snapshotPatterns() {
+        return JSON.stringify({ p: this.sequencer.patterns, l: this.sequencer.patternLengths });
+    }
+
+    pushUndo() {
+        const snap = this._snapshotPatterns();
+        if (this.undoStack[this.undoStack.length - 1] === snap) return;
+        this.undoStack.push(snap);
+        if (this.undoStack.length > 50) this.undoStack.shift();
+        this.redoStack = [];
+    }
+
+    // At most one undo step per wheel-edit burst
+    _wheelUndoPush() {
+        const now = Date.now();
+        if (!this._lastWheelPush || now - this._lastWheelPush > 800) {
+            this.pushUndo();
+        }
+        this._lastWheelPush = now;
+    }
+
+    _applySnapshot(snap) {
+        const data = JSON.parse(snap);
+        data.p.forEach((pat, b) => {
+            if (b < this.sequencer.numPatterns) this.sequencer.patterns[b] = pat;
+        });
+        this.sequencer.patternLengths = data.l;
+        this.renderAllTracks();
+    }
+
+    undo() {
+        if (this.undoStack.length === 0) return;
+        const current = this._snapshotPatterns();
+        const snap = this.undoStack.pop();
+        this.redoStack.push(current);
+        this._applySnapshot(snap);
+    }
+
+    redo() {
+        if (this.redoStack.length === 0) return;
+        const current = this._snapshotPatterns();
+        const snap = this.redoStack.pop();
+        this.undoStack.push(current);
+        this._applySnapshot(snap);
+    }
+
+    renderAllTracks() {
+        for (let t = 0; t < this.sequencer.numTracks; t++) {
+            this.renderTrack(t);
+            this.syncLenSelect(t);
+        }
     }
 
     getParamBindings() {
@@ -46,6 +107,8 @@ export class UIController {
             { name: 'filter-type', group: 'filter', param: 'type', type: 'radio' },
             { id: 'filter-cutoff', group: 'filter', param: 'cutoff', type: 'range' },
             { id: 'filter-res', group: 'filter', param: 'res', type: 'range' },
+            { id: 'filter-keytrack', group: 'filter', param: 'keytrack', type: 'range' },
+            { name: 'filter-slope', group: 'filter', param: 'slope', type: 'radio' },
             
             { id: 'f-env-a', group: 'fEnv', param: 'a', type: 'range' },
             { id: 'f-env-d', group: 'fEnv', param: 'd', type: 'range' },
@@ -69,15 +132,22 @@ export class UIController {
             // LFOs
             { name: 'lfo1-wave', group: 'lfo1', param: 'wave', type: 'radio' },
             { id: 'lfo1-rate', group: 'lfo1', param: 'rate', type: 'range' },
+            { id: 'lfo1-sync', group: 'lfo1', param: 'sync', type: 'select' },
             { id: 'lfo1-pitch', group: 'lfo1', param: 'pitch', type: 'range' },
             { id: 'lfo1-cutoff', group: 'lfo1', param: 'cutoff', type: 'range' },
-            
+
             { name: 'lfo2-wave', group: 'lfo2', param: 'wave', type: 'radio' },
             { id: 'lfo2-rate', group: 'lfo2', param: 'rate', type: 'range' },
+            { id: 'lfo2-sync', group: 'lfo2', param: 'sync', type: 'select' },
             { id: 'lfo2-amp', group: 'lfo2', param: 'amp', type: 'range' },
-            
+
             { id: 'dist-on', group: 'effects', param: 'dist-on', type: 'checkbox' },
             { id: 'dist-drive', group: 'effects', param: 'dist-drive', type: 'range' },
+
+            { id: 'chorus-on', group: 'effects', param: 'chorus-on', type: 'checkbox' },
+            { id: 'chorus-rate', group: 'effects', param: 'chorus-rate', type: 'range' },
+            { id: 'chorus-depth', group: 'effects', param: 'chorus-depth', type: 'range' },
+            { id: 'chorus-mix', group: 'effects', param: 'chorus-mix', type: 'range' },
             
             { id: 'delay-on', group: 'effects', param: 'delay-on', type: 'checkbox' },
             { id: 'delay-sync', group: 'effects', param: 'delay-sync', type: 'select' },
@@ -241,6 +311,7 @@ export class UIController {
         if (recBtn) {
             recBtn.addEventListener('click', () => {
                 const on = !this.sequencer.recArmed;
+                if (on) this.pushUndo(); // one undo step per take
                 this.sequencer.setRecording(on);
                 recBtn.classList.toggle('recording', on);
             });
@@ -255,17 +326,42 @@ export class UIController {
             });
         }
 
-        // Grey out the delay TIME slider while the delay is BPM-synced
-        const delaySyncSel = document.getElementById('delay-sync');
-        if (delaySyncSel) {
-            const dimDelayTime = () => {
-                const dimmed = parseFloat(delaySyncSel.value) > 0;
-                const timeEl = document.getElementById('delay-time');
-                if (timeEl) timeEl.classList.toggle('dimmed', dimmed);
+        // Grey out free-rate sliders while their control is BPM-synced
+        const wireSyncDim = (selId, sliderId) => {
+            const sel = document.getElementById(selId);
+            if (!sel) return;
+            const dim = () => {
+                const el = document.getElementById(sliderId);
+                if (el) el.classList.toggle('dimmed', parseFloat(sel.value) > 0);
             };
-            delaySyncSel.addEventListener('change', dimDelayTime);
-            dimDelayTime();
+            sel.addEventListener('change', dim);
+            dim();
+        };
+        wireSyncDim('delay-sync', 'delay-time');
+        wireSyncDim('lfo1-sync', 'lfo1-rate');
+        wireSyncDim('lfo2-sync', 'lfo2-rate');
+
+        // Metronome toggle (also gives the count-in when REC is armed)
+        const clickBtn = document.getElementById('seq-click');
+        if (clickBtn) {
+            clickBtn.addEventListener('click', () => {
+                this.sequencer.metronomeOn = !this.sequencer.metronomeOn;
+                clickBtn.classList.toggle('playing', this.sequencer.metronomeOn);
+            });
         }
+
+        // Undo/redo for pattern edits (Ctrl+Z / Ctrl+Shift+Z or Ctrl+Y)
+        window.addEventListener('keydown', (e) => {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            const k = (e.key || '').toLowerCase();
+            if (k === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                this.undo();
+            } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+                e.preventDefault();
+                this.redo();
+            }
+        });
 
         const bpmRange = document.getElementById('seq-bpm-range');
         const bpmDisplay = document.getElementById('bpm-display');
@@ -378,8 +474,9 @@ export class UIController {
             }
             lenSel.value = this.sequencer.patternLengths[this.sequencer.trackBanks[t]];
             lenSel.addEventListener('change', (e) => {
+                this.pushUndo();
                 this.sequencer.setPatternLength(this.sequencer.trackBanks[t], parseInt(e.target.value));
-                this.renderTrack(t);
+                this.renderAllTracks(); // the bank may be shown on several tracks
                 e.target.blur();
             });
 
@@ -409,18 +506,25 @@ export class UIController {
                 const btn = document.createElement('div');
                 btn.className = 'step-btn';
                 btn.id = `step-btn-t${trackIndex}-${i}`;
-                btn.title = 'Click: on/off · Ctrl+Click: accent · Right-click: tie · Shift+Click: P-Locks';
+                btn.title = 'Click: on/off · Ctrl+Click: accent · Right-click: tie · Shift+Click: P-Locks\n'
+                    + 'Wheel: probability · Shift+Wheel: ratchet · Ctrl+Wheel: trig condition';
+
+                const infoEl = document.createElement('span');
+                infoEl.className = 'step-info';
+                btn.appendChild(infoEl);
 
                 btn.addEventListener('click', (e) => {
                     if (e.shiftKey) {
                         this.toggleEditStep(trackIndex, i);
                     } else if (e.ctrlKey || e.altKey || e.metaKey) {
                         // Toggle accent (303-style velocity boost)
+                        this.pushUndo();
                         const bankIdx = this.sequencer.trackBanks[trackIndex];
                         const newAccent = !this.sequencer.patterns[bankIdx][i].accent;
                         this.sequencer.setStepAccent(i, newAccent, bankIdx);
                         btn.classList.toggle('accent', newAccent);
                     } else {
+                        this.pushUndo();
                         btn.classList.toggle('active');
                         const isActive = btn.classList.contains('active');
                         this.sequencer.setStep(i, isActive, undefined, this.sequencer.trackBanks[trackIndex]);
@@ -440,11 +544,36 @@ export class UIController {
                     const stepData = this.sequencer.patterns[bankIdx][i];
                     // Only allow tie on step index > 0
                     if (i === 0) return;
+                    this.pushUndo();
                     const newTie = !stepData.tie;
                     this.sequencer.setStepTie(i, newTie, bankIdx);
                     btn.classList.toggle('tie', newTie);
                     btn.parentElement.classList.toggle('tie-step', newTie);
                 });
+
+                // Wheel gestures: probability / ratchet / trig condition
+                btn.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const bankIdx = this.sequencer.trackBanks[trackIndex];
+                    const step = this.sequencer.patterns[bankIdx][i];
+                    this._wheelUndoPush();
+                    const dir = e.deltaY < 0 ? 1 : -1;
+
+                    if (e.shiftKey) {
+                        step.ratchet = Math.max(1, Math.min(4, (parseInt(step.ratchet) || 1) + dir));
+                    } else if (e.ctrlKey || e.metaKey || e.altKey) {
+                        const conds = [null, '1:2', '2:2', '1:4', '2:4', '3:4', '4:4'];
+                        const idx = Math.max(0, Math.min(conds.length - 1, conds.indexOf(step.cond || null) + dir));
+                        step.cond = conds[idx];
+                    } else {
+                        const probs = [0.25, 0.5, 0.75, 1];
+                        let idx = probs.indexOf(step.prob !== undefined ? parseFloat(step.prob) : 1);
+                        if (idx === -1) idx = 3;
+                        idx = Math.max(0, Math.min(probs.length - 1, idx + dir));
+                        step.prob = probs[idx];
+                    }
+                    this._updateStepInfo(btn, step);
+                }, { passive: false });
 
                 const pitchSelect = document.createElement('select');
                 pitchSelect.className = 'step-pitch';
@@ -458,6 +587,7 @@ export class UIController {
                 });
 
                 pitchSelect.addEventListener('change', (e) => {
+                    this.pushUndo();
                     this.sequencer.setStep(i, undefined, parseInt(e.target.value), this.sequencer.trackBanks[trackIndex]);
                     e.target.blur(); // keep focus off the select so typing plays notes again
                 });
@@ -483,6 +613,7 @@ export class UIController {
         };
 
         this.initSongRow();
+        this.initPatternTools();
 
         this.sequencer.onRecord = (trackIndex, pos) => {
             this.renderTrack(trackIndex);
@@ -506,6 +637,40 @@ export class UIController {
                 }
             }
         };
+    }
+
+    // Pattern tools operate on the target track's (REC select) current bank
+    initPatternTools() {
+        const targetBank = () => this.sequencer.trackBanks[this.sequencer.recTarget];
+        const wire = (id, fn) => {
+            const btn = document.getElementById(id);
+            if (btn) btn.addEventListener('click', fn);
+        };
+
+        wire('pat-copy', () => {
+            this.patternClipboard = this.sequencer.copyPattern(targetBank());
+        });
+        wire('pat-paste', () => {
+            if (!this.patternClipboard) return;
+            this.pushUndo();
+            this.sequencer.pastePattern(targetBank(), this.patternClipboard);
+            this.renderAllTracks();
+        });
+        wire('pat-clear', () => {
+            this.pushUndo();
+            this.sequencer.clearPattern(targetBank());
+            this.renderAllTracks();
+        });
+        wire('pat-shift-l', () => {
+            this.pushUndo();
+            this.sequencer.shiftPattern(targetBank(), -1);
+            this.renderAllTracks();
+        });
+        wire('pat-shift-r', () => {
+            this.pushUndo();
+            this.sequencer.shiftPattern(targetBank(), 1);
+            this.renderAllTracks();
+        });
     }
 
     syncLenSelect(trackIndex) {
@@ -589,6 +754,9 @@ export class UIController {
         const recTargetSel = document.getElementById('rec-target');
         if (recTargetSel) recTargetSel.value = this.sequencer.recTarget;
 
+        const clickBtn = document.getElementById('seq-click');
+        if (clickBtn) clickBtn.classList.toggle('playing', this.sequencer.metronomeOn);
+
         const bpmRange = document.getElementById('seq-bpm-range');
         if (bpmRange) {
             bpmRange.value = this.sequencer.bpm;
@@ -634,7 +802,20 @@ export class UIController {
             btn.parentElement.classList.toggle('beyond-length', i >= len);
             select.value = stepData.note;
             btn.classList.remove('edit-mode');
+            this._updateStepInfo(btn, stepData);
         }
+    }
+
+    // Small info line on a step (probability / ratchet / trig condition)
+    _updateStepInfo(btn, step) {
+        const info = btn.querySelector('.step-info');
+        if (!info) return;
+        const parts = [];
+        const prob = step.prob !== undefined ? parseFloat(step.prob) : 1;
+        if (prob < 1) parts.push(Math.round(prob * 100) + '%');
+        if ((parseInt(step.ratchet) || 1) > 1) parts.push('×' + step.ratchet);
+        if (step.cond) parts.push(step.cond);
+        info.textContent = parts.join(' ');
     }
 
     toggleEditStep(trackIndex, index) {
@@ -747,20 +928,24 @@ export class UIController {
                     velocity = 0.5 + 0.5 * Math.min(1, Math.max(0, rel));
                 }
 
+                // Octave shift applies at play time; remember the actual note so
+                // releasing after an octave change can't leave it hanging
+                const note = i + this.keyOctave * 12;
                 if (this.synth.params.master.arpOn) {
-                    this.sequencer.addArpNote(i, velocity);
+                    this.sequencer.addArpNote(note, velocity);
                 } else {
-                    this.synth.playNote(i, this.synth.ctx.currentTime, 0, {}, velocity);
+                    this.synth.playNote(note, this.synth.ctx.currentTime, 0, {}, velocity);
                 }
-                this.sequencer.recordNote(i); // no-op unless REC is armed
+                this.sequencer.recordNote(note); // no-op unless REC is armed
                 key.classList.add('active');
-                activeNotes[i] = true;
+                activeNotes[i] = note;
             });
-            
+
             const release = () => {
-                if (activeNotes[i]) {
-                    this.sequencer.removeArpNote(i);
-                    this.synth.stopNote(i, this.synth.ctx.currentTime);
+                const played = activeNotes[i];
+                if (played !== undefined && played !== false) {
+                    this.sequencer.removeArpNote(played);
+                    this.synth.stopNote(played, this.synth.ctx.currentTime);
                     key.classList.remove('active');
                     activeNotes[i] = false;
                 }
@@ -783,6 +968,26 @@ export class UIController {
             
             keyboard.appendChild(key);
         }
+
+        // Octave shift buttons for the on-screen/computer keyboard
+        const octDisplay = document.getElementById('kb-oct-display');
+        const midiToNoteName = (midi) => {
+            const notesArr = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            return `${notesArr[midi % 12]}${Math.floor(midi / 12) - 1}`;
+        };
+        const setOctave = (delta) => {
+            this.keyOctave = Math.max(-2, Math.min(2, this.keyOctave + delta));
+            if (octDisplay) octDisplay.textContent = this.keyOctave > 0 ? `+${this.keyOctave}` : this.keyOctave;
+            document.querySelectorAll('#piano-keyboard .key').forEach(k => {
+                const base = parseInt(k.dataset.note);
+                const label = k.querySelector('.key-label');
+                if (label) label.textContent = midiToNoteName(base + this.keyOctave * 12);
+            });
+        };
+        const octDown = document.getElementById('kb-oct-down');
+        const octUp = document.getElementById('kb-oct-up');
+        if (octDown) octDown.addEventListener('click', () => setOctave(-1));
+        if (octUp) octUp.addEventListener('click', () => setOctave(1));
 
         // Global blur handler to prevent stuck notes
         window.addEventListener('blur', () => {

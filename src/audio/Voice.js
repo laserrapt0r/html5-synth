@@ -58,6 +58,12 @@ export class Voice {
         this.filter = this.ctx.createBiquadFilter();
         this.filter.connect(this.output);
 
+        // Second filter stage for the 24 dB slope option (routed in when
+        // filter.slope is 24; carries no extra resonance of its own)
+        this.filter2 = this.ctx.createBiquadFilter();
+        this.filter2.Q.value = 0;
+        this._slope24 = false;
+
         const noiseBuffers = getNoiseBuffers(this.ctx);
         this.whiteNoiseBuffer = noiseBuffers.white;
         this.pinkNoiseBuffer = noiseBuffers.pink;
@@ -196,6 +202,7 @@ export class Voice {
         if (this.noiseSource) this.noiseSource.disconnect();
         this.noiseGain.disconnect();
         this.filter.disconnect();
+        this.filter2.disconnect();
         this.pitchTarget.disconnect();
         this.filterTarget.disconnect();
         try { this.vco1DcOffset.stop(); } catch (e) { /* already stopped */ }
@@ -317,22 +324,48 @@ export class Voice {
         this.filter.type = this.getParam('filter', 'type');
         this._smooth(this.filter.Q, parseFloat(this.getParam('filter', 'res')), 0.01);
         this.filterTarget.connect(this.filter.frequency);
+        this.filterTarget.connect(this.filter2.frequency);
+
+        // 12/24 dB slope: route the second filter stage in or out
+        const slope = parseInt(this.getParam('filter', 'slope')) || 12;
+        if (slope === 24 && !this._slope24) {
+            this.filter.disconnect();
+            this.filter.connect(this.filter2);
+            this.filter2.connect(this.output);
+            this._slope24 = true;
+        } else if (slope !== 24 && this._slope24) {
+            this.filter.disconnect();
+            this.filter2.disconnect();
+            this.filter.connect(this.output);
+            this._slope24 = false;
+        }
+        this.filter2.type = this.filter.type;
 
         // Live cutoff: when cutoff/res/env settings change while the note is
         // sounding, re-target the filter towards the new sustain frequency —
         // like turning the cutoff knob on a real synth.
-        const cutoff = parseFloat(this.getParam('filter', 'cutoff'));
+        const cutoff = parseFloat(this.getParam('filter', 'cutoff')) * this._keytrackMult();
         const fS = Math.max(0, parseFloat(this.getParam('fEnv', 's')));
         const fAmt = parseFloat(this.getParam('fEnv', 'amt')) * this.velocity;
         const sustainFreq = Math.max(20, Math.min(20000, cutoff + fAmt * fS));
         if (this._lastSustainFreq !== undefined && Math.abs(sustainFreq - this._lastSustainFreq) > 0.5) {
             const now = this.ctx.currentTime;
-            this.filter.frequency.cancelScheduledValues(now);
-            this.filter.frequency.setTargetAtTime(sustainFreq, now, 0.03);
+            [this.filter.frequency, this.filter2.frequency].forEach(p => {
+                p.cancelScheduledValues(now);
+                p.setTargetAtTime(sustainFreq, now, 0.03);
+            });
         }
         this._lastSustainFreq = sustainFreq;
 
         this._paramsApplied = true;
+    }
+
+    // Keyboard tracking: shifts the filter cutoff with the played pitch
+    // (0 = off, 1 = full tracking relative to middle C)
+    _keytrackMult() {
+        const kt = parseFloat(this.getParam('filter', 'keytrack')) || 0;
+        if (kt <= 0) return 1;
+        return Math.pow(this.noteFrequency / 261.63, kt);
     }
 
     // Envelope value at 'time', mirroring the automation scheduled by
@@ -382,21 +415,23 @@ export class Voice {
     }
 
     triggerFilterEnvelope(time) {
-        const cutoff = parseFloat(this.getParam('filter', 'cutoff'));
+        const cutoff = parseFloat(this.getParam('filter', 'cutoff')) * this._keytrackMult();
         const amt = parseFloat(this.getParam('fEnv', 'amt')) * this.velocity;
         const a = Math.max(0.001, parseFloat(this.getParam('fEnv', 'a')));
         const d = Math.max(0.001, parseFloat(this.getParam('fEnv', 'd')));
         const s = Math.max(0, parseFloat(this.getParam('fEnv', 's')));
-        
-        const freq = this.filter.frequency;
-        freq.cancelScheduledValues(time);
-        
+
+        const startFreq = Math.max(20, Math.min(20000, cutoff));
         const targetFreq = Math.max(20, Math.min(20000, cutoff + amt));
         const sustainFreq = Math.max(20, Math.min(20000, cutoff + (amt * s)));
-        
-        freq.setValueAtTime(cutoff, time);
-        freq.linearRampToValueAtTime(targetFreq, time + a);
-        freq.setTargetAtTime(sustainFreq, time + a, d / 3);
+
+        // Both filter stages follow the envelope (stage 2 is only audible in 24 dB mode)
+        [this.filter.frequency, this.filter2.frequency].forEach(freq => {
+            freq.cancelScheduledValues(time);
+            freq.setValueAtTime(startFreq, time);
+            freq.linearRampToValueAtTime(targetFreq, time + a);
+            freq.setTargetAtTime(sustainFreq, time + a, d / 3);
+        });
         this._lastSustainFreq = sustainFreq;
     }
 }

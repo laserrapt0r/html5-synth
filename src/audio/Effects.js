@@ -16,7 +16,40 @@ export class Effects {
         this.distMix = this.ctx.createGain();
         this.distMix.gain.value = 0;
 
-        // 2. Delay
+        // 2. Chorus / Ensemble: two modulated delay lines panned L/R
+        this.chorusDelayL = this.ctx.createDelay(0.06);
+        this.chorusDelayL.delayTime.value = 0.012;
+        this.chorusDelayR = this.ctx.createDelay(0.06);
+        this.chorusDelayR.delayTime.value = 0.017;
+
+        this.chorusLfoA = this.ctx.createOscillator();
+        this.chorusLfoA.frequency.value = 0.6;
+        this.chorusLfoB = this.ctx.createOscillator();
+        this.chorusLfoB.frequency.value = 0.7;
+        this.chorusDepthA = this.ctx.createGain();
+        this.chorusDepthA.gain.value = 0.004;
+        this.chorusDepthB = this.ctx.createGain();
+        this.chorusDepthB.gain.value = 0.005;
+        this.chorusLfoA.connect(this.chorusDepthA);
+        this.chorusDepthA.connect(this.chorusDelayL.delayTime);
+        this.chorusLfoB.connect(this.chorusDepthB);
+        this.chorusDepthB.connect(this.chorusDelayR.delayTime);
+        this.chorusLfoA.start();
+        this.chorusLfoB.start();
+
+        this.chorusPanL = this.ctx.createStereoPanner();
+        this.chorusPanL.pan.value = -0.7;
+        this.chorusPanR = this.ctx.createStereoPanner();
+        this.chorusPanR.pan.value = 0.7;
+
+        this.chorusBypass = this.ctx.createGain();
+        this.chorusBypass.gain.value = 1;
+        this.chorusMix = this.ctx.createGain();
+        this.chorusMix.gain.value = 0.5;
+        this.chorusMixNode = this.ctx.createGain();
+        this.chorusMixNode.gain.value = 0; // On/Off switch
+
+        // 3. Delay
         this.delayNode = this.ctx.createDelay(2.0); // max 2 seconds
         this.delayNode.delayTime.value = 0.3;
         this.delayFeedback = this.ctx.createGain();
@@ -56,9 +89,23 @@ export class Effects {
         this.distBypass.connect(this.distOut);
         this.distMix.connect(this.distOut);
 
-        // Dist Out goes to Delay and Reverb
-        this.distOut.connect(this.delayNode);
-        this.distOut.connect(this.delayBypass);
+        // Dist Out goes through the Chorus stage
+        this.distOut.connect(this.chorusBypass);
+        this.distOut.connect(this.chorusDelayL);
+        this.distOut.connect(this.chorusDelayR);
+        this.chorusDelayL.connect(this.chorusPanL);
+        this.chorusDelayR.connect(this.chorusPanR);
+        this.chorusPanL.connect(this.chorusMix);
+        this.chorusPanR.connect(this.chorusMix);
+        this.chorusMix.connect(this.chorusMixNode);
+
+        this.chorusOut = this.ctx.createGain();
+        this.chorusBypass.connect(this.chorusOut);
+        this.chorusMixNode.connect(this.chorusOut);
+
+        // Chorus Out goes to Delay and Reverb
+        this.chorusOut.connect(this.delayNode);
+        this.chorusOut.connect(this.delayBypass);
         this.delayNode.connect(this.delayMix);
 
         this.delayOut = this.ctx.createGain();
@@ -121,6 +168,17 @@ export class Effects {
         this._smooth(this.distMix.gain, isOn ? 1 : 0);
         this._smooth(this.distBypass.gain, isOn ? 0 : 1);
         this.distortionNode.curve = this.makeDistortionCurve(drive);
+    }
+
+    setChorus(isOn, rate, depth, mix) {
+        this._smooth(this.chorusMixNode.gain, isOn ? 1 : 0);
+        const r = parseFloat(rate) || 0.6;
+        this.chorusLfoA.frequency.value = r;
+        this.chorusLfoB.frequency.value = r * 1.17; // slight offset keeps it swirling
+        const d = parseFloat(depth);
+        this._smooth(this.chorusDepthA.gain, 0.008 * (isNaN(d) ? 0.5 : d), 0.05);
+        this._smooth(this.chorusDepthB.gain, 0.010 * (isNaN(d) ? 0.5 : d), 0.05);
+        this._smooth(this.chorusMix.gain, parseFloat(mix));
     }
 
     setDelay(isOn, time, feedback, mix) {
