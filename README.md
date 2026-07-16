@@ -1,5 +1,7 @@
 # Neon Synth
 
+![tests](https://github.com/laserrapt0r/html5-synth/actions/workflows/tests.yml/badge.svg)
+
 Neon Synth is a browser-based analog-style synthesizer and 32-step sequencer built with the Web Audio API —
 no frameworks, no build step, just ES modules. It features a retro-futuristic neon aesthetic and packs
 features typically found on hardware synths.
@@ -40,9 +42,9 @@ features typically found on hardware synths.
 - **Patch & Project Management:** The whole state (sound + patterns + song) autosaves to the browser;
   save your own patches into the preset list, export/import everything as a JSON file, and record
   the master output to an **audio file** (● REC AUDIO).
-- **18 Factory Presets:** Basses, pads, leads, organs and drones — plus sound-design showcases like
-  "KICK DRUM" (pitch envelope), "SCI-FI COMPUTER" (S&H LFO), "JUNO PWM PAD" (stereo unison PWM),
-  "ARP DREAMS" (latched arpeggiator) and "NOISE PERC" (noise percussion for the second track).
+- **28 Factory Presets**, grouped by category (BASS/LEAD/KEYS/PAD/DRUMS/FX) — including a full
+  **drum kit** (kick, snare, hats, clap, tom, rimshot) to feed the four tracks, plus showcases like
+  "JUNO PWM PAD" (stereo unison PWM), "HOOVER RAVE" and "SCI-FI COMPUTER" (S&H LFO).
 
 ## Getting Started
 
@@ -75,7 +77,8 @@ features typically found on hardware synths.
 | SOUND select (per track) | The track's sound: **LIVE** = current panel sound, or any preset/user patch (voice params only — effects stay global) |
 | Bank select (A–H) | Choose the bank per track — while playing, the switch is **quantized** to the loop start (blinking = pending) |
 | LEN select | Loop length (1–32) of the track's current bank — different lengths run polymetrically |
-| P1/P2 buttons | Mute/unmute a pattern track |
+| P1–P4 buttons | Mute/unmute a track |
+| SOUND / Level | Each track has its own sound and its own volume (mini mixer) |
 | **PLAY / STOP** | Play toggles play/pause (keeps the position); Stop resets to step 1 and cuts ringing notes |
 | **REC** + →P select | Record played notes into the target track: step entry while stopped, quantized to the beat while playing |
 | **SONG** row | Chain scenes: **+ADD** captures the current bank selection, click a chip to raise its repeat count, right-click removes it |
@@ -94,7 +97,14 @@ display in the header shows the connection status. Requirements: Chromium-based 
 
 ## Documentation
 
-See [CODE_REFERENCE.md](CODE_REFERENCE.md) for the architecture, signal flow, module and class reference.
+- **[User Manual (English)](docs/MANUAL.md)** / **[Anleitung (Deutsch)](docs/ANLEITUNG.md)** — illustrated guide to every feature.
+- In the app, the **?** button opens a gesture and shortcut overview.
+- [CODE_REFERENCE.md](CODE_REFERENCE.md) — architecture, signal flow, module and class reference.
+
+## Development
+
+The headless test suite (67 checks against the real app) runs locally with
+`bash tests/run-tests.sh` (needs Chromium/Chrome) and on every push via GitHub Actions.
 
 ## Technologies Used
 - HTML5, CSS3

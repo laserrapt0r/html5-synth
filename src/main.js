@@ -34,6 +34,24 @@ const applyPatch = (params) => {
     uiController.updateUIFromParams();
 };
 
+// Factory presets grouped by category (INIT stays a plain top-level option).
+// Used by the preset dropdown and all four track-sound dropdowns.
+const CATEGORY_ORDER = ['INIT', 'BASS', 'LEAD', 'KEYS', 'PAD', 'DRUMS', 'FX'];
+const buildFactoryOptions = (sel) => {
+    CATEGORY_ORDER.forEach(cat => {
+        const items = Object.entries(Presets).filter(([, p]) => (p.cat || 'FX') === cat);
+        if (items.length === 0) return;
+        if (cat === 'INIT') {
+            items.forEach(([id, p]) => sel.appendChild(new Option(p.name, id)));
+            return;
+        }
+        const group = document.createElement('optgroup');
+        group.label = cat;
+        items.forEach(([id, p]) => group.appendChild(new Option(p.name, id)));
+        sel.appendChild(group);
+    });
+};
+
 // --- Per-track sounds (multi-timbrality) ---
 // A track sound is a patch whose voice-level params are flattened to P-Locks
 // and merged under each step's own locks at schedule time. Effects, LFOs and
@@ -71,7 +89,8 @@ const resolveAllTrackSounds = () => {
     }
 };
 
-// Fill the per-track sound dropdowns (LIVE + factory presets + user patches)
+// Fill the per-track sound dropdowns (LIVE + factory presets grouped by
+// category + user patches)
 const refreshTrackSoundOptions = () => {
     const patches = persistence.getUserPatches();
     for (let t = 0; t < sequencer.numTracks; t++) {
@@ -83,12 +102,7 @@ const refreshTrackSoundOptions = () => {
         live.value = '';
         live.textContent = 'LIVE';
         sel.appendChild(live);
-        for (const [pid, preset] of Object.entries(Presets)) {
-            const opt = document.createElement('option');
-            opt.value = pid;
-            opt.textContent = preset.name;
-            sel.appendChild(opt);
-        }
+        buildFactoryOptions(sel);
         const userIds = Object.keys(patches);
         if (userIds.length > 0) {
             const grp = document.createElement('optgroup');
@@ -134,6 +148,8 @@ persistence.startAutosave();
 
 // Preset Handling (factory presets + user patches)
 const presetSelect = document.getElementById('preset-select');
+buildFactoryOptions(presetSelect);
+presetSelect.value = 'init';
 
 const refreshUserPatchOptions = () => {
     const oldGroup = document.getElementById('user-patch-group');
@@ -244,6 +260,20 @@ if (audioRecBtn && window.MediaRecorder) {
     audioRecBtn.disabled = true;
     audioRecBtn.title = 'MediaRecorder is not supported in this browser';
 }
+
+// Help overlay
+const helpModal = document.getElementById('help-modal');
+document.getElementById('help-btn').addEventListener('click', () => {
+    helpModal.style.display = 'flex';
+});
+document.getElementById('btn-close-help').addEventListener('click', () => {
+    helpModal.style.display = 'none';
+});
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && helpModal.style.display === 'flex') {
+        helpModal.style.display = 'none';
+    }
+});
 
 // Custom Osc Logic
 oscDraw = new OscDraw('osc-canvas', synth);

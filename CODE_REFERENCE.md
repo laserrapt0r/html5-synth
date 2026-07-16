@@ -73,6 +73,8 @@ Noise ──► noiseGain ┘
 | `src/ui/UIController.js` | Binds every control to `synth.updateParams`, step grid, P-Lock editing, on-screen keyboard |
 | `src/ui/Visualizer.js` | Oscilloscope rendering from the shared AnalyserNode |
 | `src/ui/OscDraw.js` | Custom waveform drawing canvas + DFT → `PeriodicWave` coefficients |
+| `tests/suite.js` + `tests/run-tests.sh` | Headless test suite (injected into the real page, run in Chromium; CI via `.github/workflows/tests.yml`) |
+| `docs/MANUAL.md` / `docs/ANLEITUNG.md` | Illustrated user manual (EN/DE) with screenshots in `docs/img/` |
 
 ## Core Data Structures
 
@@ -195,6 +197,7 @@ within the next 100 ms (`scheduleAheadTime`) at sample-accurate AudioContext tim
 | `copyPattern/pastePattern/clearPattern/shiftPattern` | Pattern tools (UIController keeps the clipboard and the undo/redo snapshot stacks) |
 | `metronomeOn` / `_click(time, accent)` | Metronome blips straight into the master bus |
 | `setTrackSound(track, id, locks)` | Assigns a per-track sound (patch id + flattened voice-param locks; null = LIVE) |
+| `setTrackLevel(track, v)` / `trackLevels` | Per-track volume 0..1.25, applied as a velocity factor (mini mixer) |
 | `serialize()` / `loadState(state)` | Project persistence (patterns, lengths, banks, mutes, track sounds, transport, song); merges per index so older projects with fewer tracks/banks load cleanly |
 | `onStep(step)` | UI callback (step indicator), `-1` on stop |
 

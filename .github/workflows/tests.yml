@@ -1,0 +1,16 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  headless-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run headless test suite
+        run: bash tests/run-tests.sh
+        env:
+          BROWSER: google-chrome

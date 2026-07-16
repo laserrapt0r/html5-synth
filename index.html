@@ -22,25 +22,8 @@
                 <div class="control-group">
                     <label>PRESET</label>
                     <div style="display: flex; gap: 4px; align-items: center;">
-                    <select id="preset-select" class="preset-dropdown">
-                        <option value="init">INIT PATCH</option>
-                        <option value="cyber-bass">CYBER BASS</option>
-                        <option value="neon-pad">NEON PAD</option>
-                        <option value="acid-pluck">ACID PLUCK</option>
-                        <option value="retro-brass">RETRO BRASS</option>
-                        <option value="deep-sub">DEEP SUB</option>
-                        <option value="synth-bell">SYNTH BELL</option>
-                        <option value="solina-strings">SOLINA STRINGS</option>
-                        <option value="prodigy-lead">PRODIGY LEAD</option>
-                        <option value="juno-pwm-pad">JUNO PWM PAD</option>
-                        <option value="wobble-bass">WOBBLE BASS</option>
-                        <option value="kick-drum">KICK DRUM</option>
-                        <option value="noise-perc">NOISE PERC</option>
-                        <option value="drawbar-organ">DRAWBAR ORGAN</option>
-                        <option value="arp-dreams">ARP DREAMS</option>
-                        <option value="sci-fi-computer">SCI-FI COMPUTER</option>
-                        <option value="laser-zap">LASER ZAP</option>
-                        <option value="void-drone">VOID DRONE</option>
+                    <select id="preset-select" class="preset-dropdown" title="Factory presets and user patches">
+                        <!-- Options generated from Presets.js, grouped by category -->
                     </select>
                     <button id="patch-save" class="mini-btn" title="Save current sound as user patch">SAVE</button>
                     <button id="patch-delete" class="mini-btn" title="Delete selected user patch">DEL</button>
@@ -68,6 +51,7 @@
                     <label>MIDI</label>
                     <span id="midi-status" class="led-display" style="min-width: 44px; text-align: center; white-space: nowrap; font-size: 0.7rem;" title="MIDI input status (connect a keyboard and press INIT AUDIO)">--</span>
                 </div>
+                <button id="help-btn" class="mini-btn" style="font-size: 0.85rem; padding: 4px 9px;" title="Help: gestures and shortcuts">?</button>
                 <button id="power-btn" class="glow-btn power">INIT AUDIO</button>
             </div>
         </header>
@@ -665,6 +649,49 @@
             </div>
         </section>
 
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 760px; max-height: 85vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>GESTURES &amp; SHORTCUTS</h2>
+                <button id="btn-close-help">X</button>
+            </div>
+            <div class="modal-body help-body">
+                <h3>SEQUENCER STEPS</h3>
+                <table class="help-table">
+                    <tr><td>Click</td><td>Step on/off</td></tr>
+                    <tr><td>Ctrl+Click</td><td>Accent (velocity boost, orange LED)</td></tr>
+                    <tr><td>Right-click</td><td>Tie — extends the previous note; a tie with a <em>different pitch</em> slides there (303 style)</td></tr>
+                    <tr><td>Shift+Click</td><td>P-Lock edit mode: every control you move is locked to this step only</td></tr>
+                    <tr><td>Wheel</td><td>Trigger probability (100/75/50/25&nbsp;%)</td></tr>
+                    <tr><td>Shift+Wheel</td><td>Ratchet: 1–4 retriggers within the step</td></tr>
+                    <tr><td>Ctrl+Wheel</td><td>Trig condition (1:2 … 4:4 — plays only on matching loop passes)</td></tr>
+                    <tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo pattern edits</td></tr>
+                </table>
+                <h3>TRACKS &amp; TRANSPORT</h3>
+                <table class="help-table">
+                    <tr><td>P1–P4</td><td>Mute/unmute a track</td></tr>
+                    <tr><td>Sound select</td><td>The track's own sound (LIVE = current panel sound) — tracks are multi-timbral</td></tr>
+                    <tr><td>Bank A–H / LEN</td><td>Pattern bank (switches quantized to the loop start while playing) and loop length 1–32 (polymetric)</td></tr>
+                    <tr><td>Level slider</td><td>Track volume (mini mixer)</td></tr>
+                    <tr><td>PLAY / STOP</td><td>Play toggles play/pause (keeps position); Stop resets and cuts notes</td></tr>
+                    <tr><td>REC + →P</td><td>Record into the target track: step entry when stopped, beat-quantized while playing; CLICK adds a metronome and a 1-bar count-in</td></tr>
+                    <tr><td>TOOLS</td><td>Copy/paste/clear/rotate the target track's pattern</td></tr>
+                    <tr><td>SONG</td><td>Chain bank scenes: +ADD captures the current banks, click a chip = more repeats, right-click = remove</td></tr>
+                    <tr><td>● REC AUDIO</td><td>Record the master output to an audio file</td></tr>
+                </table>
+                <h3>KEYBOARD &amp; SOUND</h3>
+                <table class="help-table">
+                    <tr><td>Mouse click</td><td>Lower on the key = louder (velocity)</td></tr>
+                    <tr><td>Computer keys A–K</td><td>Play notes (layout-aware labels); +/− shifts the octave</td></tr>
+                    <tr><td>MIDI</td><td>Velocity, pitch bend, mod wheel, sustain pedal</td></tr>
+                    <tr><td>Slider wheel</td><td>Fine steps; spin fast for coarse steps</td></tr>
+                    <tr><td>SAVE / DEL / EXP / IMP</td><td>User patches and project export/import — everything also autosaves in the browser</td></tr>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Custom Osc Modal -->

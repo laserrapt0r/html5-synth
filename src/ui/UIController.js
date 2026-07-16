@@ -493,10 +493,30 @@ export class UIController {
                 e.target.blur();
             });
 
+            // Track level (mini mixer): scales the velocity of this track's notes
+            const levelSlider = document.createElement('input');
+            levelSlider.type = 'range';
+            levelSlider.className = 'track-level';
+            levelSlider.id = `track-level-${t}`;
+            levelSlider.min = 0;
+            levelSlider.max = 1.25;
+            levelSlider.step = 0.05;
+            levelSlider.value = 1;
+            levelSlider.title = 'Track level';
+            const paintLevel = () => {
+                levelSlider.style.setProperty('--percent', `${(parseFloat(levelSlider.value) / 1.25) * 100}%`);
+            };
+            levelSlider.addEventListener('input', () => {
+                this.sequencer.setTrackLevel(t, parseFloat(levelSlider.value));
+                paintLevel();
+            });
+            paintLevel();
+
             side.appendChild(muteBtn);
             side.appendChild(soundSel);
             side.appendChild(bankSel);
             side.appendChild(lenSel);
+            side.appendChild(levelSlider);
 
             const grid = document.createElement('div');
             grid.className = 'seq-grid';
@@ -705,7 +725,7 @@ export class UIController {
             this.sequencer.songChain.forEach((scene, idx) => {
                 const chip = document.createElement('div');
                 chip.className = 'song-chip';
-                chip.textContent = `${bankName(scene.banks[0])}${bankName(scene.banks[1])}×${scene.repeats}`;
+                chip.textContent = `${scene.banks.map(bankName).join('')}×${scene.repeats}`;
                 chip.title = 'Scene: banks for track 1+2 · Click: repeats +1 · Right-click: remove';
                 if (this.sequencer.songMode && idx === this.sequencer.songIndex) chip.classList.add('active');
                 chip.addEventListener('click', () => {
@@ -761,6 +781,11 @@ export class UIController {
             if (soundSel) soundSel.value = this.sequencer.trackSoundIds[t] || '';
             const muteBtn = document.getElementById(`pattern-mute-${t}`);
             if (muteBtn) muteBtn.classList.toggle('active', !this.sequencer.trackMuted[t]);
+            const levelSlider = document.getElementById(`track-level-${t}`);
+            if (levelSlider) {
+                levelSlider.value = this.sequencer.trackLevels[t];
+                levelSlider.style.setProperty('--percent', `${(this.sequencer.trackLevels[t] / 1.25) * 100}%`);
+            }
             this.renderTrack(t);
             this.syncLenSelect(t);
         }

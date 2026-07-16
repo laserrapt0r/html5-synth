@@ -40,6 +40,9 @@ export class Sequencer {
         this.trackSoundIds = Array.from({length: this.numTracks}, () => null);
         this.trackSoundLocks = Array.from({length: this.numTracks}, () => null);
 
+        // Per-track level (mini mixer): scales the note velocity 0..1.25
+        this.trackLevels = Array.from({length: this.numTracks}, () => 1);
+
         // Song mode: a chain of scenes [{banks:[a,b], repeats:n}]
         this.songMode = false;
         this.songChain = [];
@@ -156,6 +159,10 @@ export class Sequencer {
     setTrackSound(trackIndex, id, locks) {
         this.trackSoundIds[trackIndex] = id || null;
         this.trackSoundLocks[trackIndex] = locks || null;
+    }
+
+    setTrackLevel(trackIndex, level) {
+        this.trackLevels[trackIndex] = Math.max(0, Math.min(1.25, parseFloat(level) || 0));
     }
 
     // Write a played note into the target track's current bank: quantized to
@@ -487,7 +494,7 @@ export class Sequencer {
                     // Track sound (multi-timbrality) merged under the step's own locks
                     const soundLocks = this.trackSoundLocks[trackIndex];
                     const locks = soundLocks ? { ...soundLocks, ...stepData.locks } : stepData.locks;
-                    const velocity = stepData.accent ? ACCENT_VELOCITY : 1;
+                    const velocity = (stepData.accent ? ACCENT_VELOCITY : 1) * this.trackLevels[trackIndex];
 
                     const ratchet = Math.max(1, parseInt(stepData.ratchet) || 1);
                     if (ratchet > 1) {
@@ -590,6 +597,7 @@ export class Sequencer {
             trackBanks: [...this.trackBanks],
             trackMuted: [...this.trackMuted],
             trackSoundIds: [...this.trackSoundIds],
+            trackLevels: [...this.trackLevels],
             metronomeOn: this.metronomeOn,
             bpm: this.bpm,
             gate: this.gate,
@@ -637,6 +645,9 @@ export class Sequencer {
         if (Array.isArray(state.trackSoundIds)) {
             state.trackSoundIds.forEach((id, i) => { if (i < this.numTracks) this.trackSoundIds[i] = id || null; });
             // trackSoundLocks are re-resolved from the ids by main.js after loading
+        }
+        if (Array.isArray(state.trackLevels)) {
+            state.trackLevels.forEach((l, i) => { if (i < this.numTracks) this.setTrackLevel(i, l); });
         }
         this.metronomeOn = !!state.metronomeOn;
         if (state.bpm) this.setBpm(state.bpm);
