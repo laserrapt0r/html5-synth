@@ -279,8 +279,8 @@ export class UIController {
                     }
                 });
 
-                // Right-click to toggle tie
-                btn.addEventListener('contextmenu', (e) => {
+                // Right-click on entire column to toggle tie
+                col.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     const bankIdx = this.trackBanks[trackIndex];
                     const stepData = this.sequencer.patterns[bankIdx][i];
