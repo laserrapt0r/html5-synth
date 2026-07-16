@@ -48,6 +48,7 @@ Noise ──► noiseGain ┘
 ### Modulation routing (global, in `Synth`)
 
 - `lfo1 → lfo1PitchGain → voice.pitchTarget → osc.detune` (all three VCOs)
+- `voice.pitchEnvSource → voice.pitchTarget → osc.detune` (pitch envelope, per voice)
 - `lfo1 → lfo1CutoffGain → voice.filterTarget → filter.frequency`
 - `lfo1 → lfo1PwmGain → voice.vco1DcOffset.offset` (PWM depth)
 - `lfo2 → lfo2AmpGain → masterGain.gain` (tremolo, post-effects)
@@ -88,6 +89,7 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
   filter:  { type, cutoff, res },
   fEnv:    { a, d, s, r, amt },          // filter envelope (amt in Hz, can be negative)
   aEnv:    { a, d, s, r },               // amp envelope
+  pEnv:    { d, amt },                   // pitch envelope (amt in semitones ±48, decay-only)
   lfo1:    { wave, rate, pitch, cutoff },// wave 'random' = S&H mode
   lfo2:    { wave, rate, amp },
   effects: { 'dist-on', 'dist-drive', 'delay-on', 'delay-time', 'delay-fb', 'delay-mix',
@@ -107,7 +109,7 @@ Values coming from the UI are **strings** — consumers call `parseFloat`/`parse
 - `accent` — plays the step with `ACCENT_VELOCITY` (1.25): louder and with a wider filter sweep.
 - `locks` — P-Locks: `{ "group.param": value }`, e.g. `{ "filter.cutoff": "400" }`.
   Applied per note via `Voice.getParam`, which prefers a lock over `Synth.params`.
-  Only voice-level groups are lockable (`vco1-3`, `noise`, `filter`, `fEnv`, `aEnv`).
+  Only voice-level groups are lockable (`vco1-3`, `noise`, `filter`, `fEnv`, `aEnv`, `pEnv`).
 
 Patterns: `sequencer.patterns[bank][step]` — 4 banks × 32 steps. Two *tracks* each play one bank
 (`trackBanks`, default A and B) and can be muted (`trackMuted`). If both tracks select the same
@@ -149,6 +151,7 @@ One instance per sounding note. Noise buffers are generated once per AudioContex
 | `updateParams(skipFrequency=false)` | Re-applies all voice params; `skipFrequency` is used by the mono glide path so the glide automation isn't overwritten |
 | `getParam(group, key)` | P-Lock-aware parameter read |
 | `triggerAmpEnvelope(time)` / `triggerFilterEnvelope(time)` | ADSR via `linearRamp` (attack) + `setTargetAtTime` (decay/sustain), scaled by `velocity` |
+| `triggerPitchEnvelope(time)` | Decay-only pitch sweep: a per-voice `ConstantSource` (`pitchEnvSource`, in cents) summed into `pitchTarget`, so it detunes all three VCOs without touching the glide automation |
 
 **PWM implementation:** when VCO1 is `square` with `pw ≠ 0.5` or `pwm > 0`, the oscillator switches
 to sawtooth feeding a comparator (`WaveShaper` with a sign curve). A `ConstantSource` (`vco1DcOffset`)

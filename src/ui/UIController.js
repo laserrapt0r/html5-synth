@@ -54,6 +54,9 @@ export class UIController {
             { id: 'a-env-d', group: 'aEnv', param: 'd', type: 'range' },
             { id: 'a-env-s', group: 'aEnv', param: 's', type: 'range' },
             { id: 'a-env-r', group: 'aEnv', param: 'r', type: 'range' },
+
+            { id: 'p-env-amt', group: 'pEnv', param: 'amt', type: 'range' },
+            { id: 'p-env-d', group: 'pEnv', param: 'd', type: 'range' },
             { id: 'seq-swing', group: 'master', param: 'swing', type: 'range' },
             { id: 'arp-on', group: 'master', param: 'arpOn', type: 'checkbox' },
             { id: 'arp-mode', group: 'master', param: 'arpMode', type: 'select' },
@@ -139,7 +142,7 @@ export class UIController {
         // Only voice-level params can be locked per step — Voice.getParam knows
         // nothing about global groups (effects, master, LFOs), so locking those
         // would silently do nothing during playback.
-        const lockableGroups = new Set(['vco1', 'vco2', 'vco3', 'noise', 'filter', 'fEnv', 'aEnv']);
+        const lockableGroups = new Set(['vco1', 'vco2', 'vco3', 'noise', 'filter', 'fEnv', 'aEnv', 'pEnv']);
 
         this.paramBindings.forEach(binding => {
             const handleParamChange = (value, el) => {

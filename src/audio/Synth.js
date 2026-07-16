@@ -31,6 +31,7 @@ export class Synth {
             filter: { type: 'lowpass', cutoff: 1500, res: 2 },
             fEnv: { a: 0.1, d: 0.3, s: 0.2, r: 0.5, amt: 2500 },
             aEnv: { a: 0.05, d: 0.5, s: 0.8, r: 1.0 },
+            pEnv: { d: 0.1, amt: 0 },
             lfo1: { wave: 'sine', rate: 5, pitch: 0, cutoff: 0 },
             lfo2: { wave: 'sine', rate: 2, amp: 0 },
             effects: { 
@@ -168,6 +169,7 @@ export class Synth {
                     this.monoVoice.velocity = velocity;
                     this.monoVoice.triggerAmpEnvelope(time);
                     this.monoVoice.triggerFilterEnvelope(time);
+                    this.monoVoice.triggerPitchEnvelope(time);
                 }
 
                 // Take over the new step's parameter locks (frequency is glided below)

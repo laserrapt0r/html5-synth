@@ -31,6 +31,15 @@
                         <option value="synth-bell">SYNTH BELL</option>
                         <option value="solina-strings">SOLINA STRINGS</option>
                         <option value="prodigy-lead">PRODIGY LEAD</option>
+                        <option value="juno-pwm-pad">JUNO PWM PAD</option>
+                        <option value="wobble-bass">WOBBLE BASS</option>
+                        <option value="kick-drum">KICK DRUM</option>
+                        <option value="noise-perc">NOISE PERC</option>
+                        <option value="drawbar-organ">DRAWBAR ORGAN</option>
+                        <option value="arp-dreams">ARP DREAMS</option>
+                        <option value="sci-fi-computer">SCI-FI COMPUTER</option>
+                        <option value="laser-zap">LASER ZAP</option>
+                        <option value="void-drone">VOID DRONE</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -207,6 +216,23 @@
                                 <div class="control-group">
                                     <label>TIME</label>
                                     <input type="range" id="glide-time" min="0" max="2" step="0.01" value="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pitch Env Box -->
+                        <div class="mixer-module" style="flex: 1;">
+                            <div class="fx-header" style="margin-bottom: 8px;">
+                                <span style="font-size: 0.9rem; font-weight: bold; color: var(--neon-cyan);">PITCH ENV</span>
+                            </div>
+                            <div class="controls-row" style="flex: 1; flex-direction: column; align-items: center; gap: 4px;">
+                                <div class="control-group">
+                                    <label>AMT (ST)</label>
+                                    <input type="range" id="p-env-amt" min="-48" max="48" step="1" value="0">
+                                </div>
+                                <div class="control-group">
+                                    <label>DECAY</label>
+                                    <input type="range" id="p-env-d" min="0.01" max="2" step="0.01" value="0.1">
                                 </div>
                             </div>
                         </div>

@@ -60,6 +60,13 @@ export class Voice {
 
         this.pitchTarget = this.ctx.createGain();
         this.pitchTarget.gain.value = 1;
+
+        // Pitch envelope: a ConstantSource summed into pitchTarget (cents),
+        // automated per note-on. Drives all three VCOs' detune.
+        this.pitchEnvSource = this.ctx.createConstantSource();
+        this.pitchEnvSource.offset.value = 0;
+        this.pitchEnvSource.start();
+        this.pitchEnvSource.connect(this.pitchTarget);
         
         this.filterTarget = this.ctx.createGain();
         this.filterTarget.gain.value = 1;
@@ -141,6 +148,7 @@ export class Voice {
 
         this.triggerAmpEnvelope(time);
         this.triggerFilterEnvelope(time);
+        this.triggerPitchEnvelope(time);
     }
 
     stop(time) {
@@ -198,6 +206,8 @@ export class Voice {
         this.filterTarget.disconnect();
         try { this.vco1DcOffset.stop(); } catch (e) { /* already stopped */ }
         this.vco1DcOffset.disconnect();
+        try { this.pitchEnvSource.stop(); } catch (e) { /* already stopped */ }
+        this.pitchEnvSource.disconnect();
         this.output.disconnect();
     }
 
@@ -300,6 +310,20 @@ export class Voice {
         gain.setValueAtTime(0, time);
         gain.linearRampToValueAtTime(peak, time + a);
         gain.setTargetAtTime(s * peak, time + a, d / 3);
+    }
+
+    triggerPitchEnvelope(time) {
+        const amt = parseFloat(this.getParam('pEnv', 'amt')) * 100; // semitones -> cents
+        const d = Math.max(0.005, parseFloat(this.getParam('pEnv', 'd')));
+
+        const offset = this.pitchEnvSource.offset;
+        offset.cancelScheduledValues(time);
+        if (!amt) {
+            offset.setValueAtTime(0, time);
+            return;
+        }
+        offset.setValueAtTime(amt, time);
+        offset.setTargetAtTime(0, time, d / 3);
     }
 
     triggerFilterEnvelope(time) {

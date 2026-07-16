@@ -16,6 +16,8 @@ features typically found on hardware synths.
 - **Custom Oscillator Drawing:** Draw your own waveform on a canvas — the engine computes the Fourier
   coefficients and synthesizes your drawing in real time.
 - **Pulse Width Modulation (PWM):** Adjustable pulse width plus LFO-driven PWM for fat, phasing squares.
+- **Pitch Envelope:** ±48 semitones with adjustable decay — for kick drums, laser zaps and percussive
+  transients. P-lockable per step like all voice parameters.
 - **Dual LFOs:** LFO1 modulates Pitch, Filter Cutoff and PWM; LFO2 is a tremolo. Both include a
   Random (Sample & Hold) mode for generative textures.
 - **32-Step Sequencer** with two pattern tracks, four pattern banks (A–D), per-track mute,
@@ -25,7 +27,9 @@ features typically found on hardware synths.
   1–3 octaves, latch mode, synced to the sequencer clock.
 - **Swing, Gate & Time Division** (1/8, 1/16, 1/32) for groove control.
 - **Effects Rack:** Distortion, Feedback Delay and Convolution Reverb.
-- **Presets:** From "CYBER BASS" to "SOLINA STRINGS" — instantly loadable starting points.
+- **18 Presets:** Basses, pads, leads, organs and drones — plus sound-design showcases like
+  "KICK DRUM" (pitch envelope), "SCI-FI COMPUTER" (S&H LFO), "JUNO PWM PAD" (PWM),
+  "ARP DREAMS" (latched arpeggiator) and "NOISE PERC" (noise percussion for the second track).
 
 ## Getting Started
 
