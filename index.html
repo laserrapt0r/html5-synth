@@ -27,7 +27,8 @@
                     </select>
                     <button id="patch-save" class="mini-btn" title="Save current sound as user patch">SAVE</button>
                     <button id="patch-delete" class="mini-btn" title="Delete selected user patch">DEL</button>
-                    <button id="patch-export" class="mini-btn" title="Export project as JSON file">EXP</button>
+                    <button id="patch-export-single" class="mini-btn" title="Export the selected preset/patch as a shareable file">PEXP</button>
+                    <button id="patch-export" class="mini-btn" title="Export the whole project as JSON file">EXP</button>
                     <button id="patch-import" class="mini-btn" title="Import project from JSON file">IMP</button>
                     <button id="patch-reset" class="mini-btn" title="Factory reset: delete the autosaved project and ALL user patches, then reload">RST</button>
                     <input type="file" id="patch-file" accept=".json,application/json" style="display: none;">
@@ -647,6 +648,7 @@
                         <button id="pat-clear" class="mini-btn" title="Clear the target track's pattern">CLR</button>
                         <button id="pat-shift-l" class="mini-btn" title="Rotate pattern one step left">◀</button>
                         <button id="pat-shift-r" class="mini-btn" title="Rotate pattern one step right">▶</button>
+                        <button id="seq-export" class="mini-btn" style="margin-left: 10px;" title="Export the sequencer (patterns, song, track setup incl. referenced user patches) as a shareable file — import via IMP">SEQ EXP</button>
                         <button id="audio-rec" class="mini-btn" style="margin-left: 10px;" title="Record the master output to an audio file">● REC AUDIO</button>
                     </div>
                 </div>
@@ -693,7 +695,8 @@
                     <tr><td>Computer keys A–K</td><td>Play notes (layout-aware labels); +/− shifts the octave</td></tr>
                     <tr><td>MIDI</td><td>Velocity, pitch bend, mod wheel, sustain pedal</td></tr>
                     <tr><td>Slider wheel</td><td>Fine steps; spin fast for coarse steps</td></tr>
-                    <tr><td>SAVE / DEL / EXP / IMP</td><td>User patches and project export/import — everything also autosaves in the browser</td></tr>
+                    <tr><td>SAVE / DEL / EXP / IMP</td><td>User patches and project export/import — everything also autosaves in the browser. IMP auto-detects the file type (project, patch or sequence)</td></tr>
+                    <tr><td>PEXP / SEQ EXP</td><td>Share a single sound (the selected preset/patch) or just the sequencer (patterns, song, track setup incl. its user patches)</td></tr>
                     <tr><td>RST</td><td>Factory reset: deletes the autosaved project and all user patches (factory presets are never affected)</td></tr>
                 </table>
             </div>

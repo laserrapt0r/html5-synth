@@ -559,6 +559,38 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         pers2.deleteUserPatch(patchId);
         assert(!pers2.getUserPatches()[patchId], 'user patch deleted');
 
+        // Typed exports: single patch round-trip
+        const patchFile = JSON.stringify(pers2.buildPatchExport('Share Me', Presets['cyber-bass'].params));
+        const patchRes = pers2.importData(patchFile);
+        assert(patchRes && patchRes.kind === 'patch' && patchRes.data.name === 'Share Me' &&
+               patchRes.data.params.filter.cutoff === Presets['cyber-bass'].params.filter.cutoff,
+            'single-patch file exports and is detected on import');
+
+        // Sequence export embeds referenced user patches and restores them
+        const embedId = pers2.saveUserPatch('Seq Sound');
+        seq2.setTrackSound(0, embedId, {});
+        seq2.patterns[2][3].active = true;
+        seq2.patterns[2][3].note = 63;
+        const seqFile = JSON.stringify(pers2.buildSequenceExport());
+        pers2.deleteUserPatch(embedId); // receiver doesn't have the patch
+        seq2.patterns[2][3].active = false;
+        const seqRes = pers2.importData(seqFile);
+        assert(seqRes && seqRes.kind === 'sequence', 'sequence file detected on import');
+        seq2.loadState(seqRes.data.seq);
+        assert(seq2.patterns[2][3].active && seq2.patterns[2][3].note === 63 &&
+               !!pers2.getUserPatches()[embedId],
+            'sequence import restores patterns and its embedded user patches');
+        seq2.setTrackSound(0, null, null);
+        pers2.deleteUserPatch(embedId);
+
+        // Legacy project files (pre-1.1, no type field) still import as projects
+        const legacyFile = JSON.stringify({ v: 1, params: synth2.params, seq: seq2.serialize() });
+        const legacyRes = pers2.importData(legacyFile);
+        assert(legacyRes && legacyRes.kind === 'project', 'legacy project files without type still import');
+
+        assert(!!document.getElementById('patch-export-single') && !!document.getElementById('seq-export'),
+            'PEXP and SEQ EXP buttons present');
+
         // Factory reset wipes project + patches and blocks the autosave flush
         pers2.saveUserPatch('Reset Victim');
         pers2.saveProject();

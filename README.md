@@ -88,9 +88,11 @@ features typically found on hardware synths.
 
 Everything (sound, patterns, song, transport settings) autosaves to your browser's localStorage and
 is restored on the next visit. **SAVE** stores the current sound as a user patch in the preset list,
-**DEL** removes it, **EXP**/**IMP** export/import the whole project (including user patches) as a
-JSON file, and **RST** performs a factory reset (deletes the autosaved project and all user
-patches — the factory presets live in code and are never affected by imports).
+**DEL** removes it, **PEXP** exports the selected preset/patch as a shareable file, **EXP** exports
+the whole project, **SEQ EXP** (TOOLS row) exports just the sequencer (patterns, song, track setup
+with the referenced user patches embedded), and **IMP** imports any of these files — the type is
+detected automatically. **RST** performs a factory reset (deletes the autosaved project and all
+user patches — the factory presets live in code and are never affected by imports).
 
 ## MIDI
 

@@ -26,10 +26,15 @@ restored on your next visit.
 
 - **PRESET** — 28 factory presets grouped by category (BASS, LEAD, KEYS, PAD,
   DRUMS, FX) plus your own patches.
-  **SAVE** stores the current sound as a user patch, **DEL** removes it,
-  **EXP/IMP** export/import the entire project as a JSON file, and **RST**
-  resets everything to factory defaults (deletes the autosaved project and
-  all user patches — the factory presets themselves can never be changed).
+  **SAVE** stores the current sound as a user patch, **DEL** removes it.
+  **PEXP** exports the selected preset/patch as a shareable file, **EXP** the
+  entire project, and **SEQ EXP** (in the sequencer's TOOLS row) just the
+  sequencer — patterns, song and track setup with the referenced user patches
+  embedded, so a shared groove sounds identical on the receiving side.
+  **IMP** imports any of these files and detects the type automatically:
+  patches are added to your list, sequences replace only the sequencer,
+  projects replace everything. **RST** resets everything to factory defaults
+  (the factory presets themselves can never be changed).
 - **MASTER** — output volume (a limiter behind it prevents digital clipping).
 - **VOICES** — POLY (16 voices), MONO (retriggering, with note memory) or
   LEGATO (no retrigger, glide between notes).

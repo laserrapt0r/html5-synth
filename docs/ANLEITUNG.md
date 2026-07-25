@@ -27,11 +27,15 @@ gespeichert** und beim nächsten Besuch wiederhergestellt.
 
 - **PRESET** — 28 Werks-Presets, nach Kategorien gruppiert (BASS, LEAD, KEYS,
   PAD, DRUMS, FX), plus deine eigenen Patches.
-  **SAVE** speichert den aktuellen Sound als User-Patch, **DEL** löscht ihn,
-  **EXP/IMP** exportieren/importieren das komplette Projekt als JSON-Datei,
-  und **RST** setzt alles auf Werkszustand zurück (löscht das automatisch
-  gespeicherte Projekt und alle User-Patches — die Werks-Presets selbst
-  können nie verändert werden).
+  **SAVE** speichert den aktuellen Sound als User-Patch, **DEL** löscht ihn.
+  **PEXP** exportiert das gewählte Preset bzw. den Patch als teilbare Datei,
+  **EXP** das komplette Projekt, und **SEQ EXP** (in der TOOLS-Zeile des
+  Sequencers) nur den Sequencer — Patterns, Song und Track-Setup mit den
+  referenzierten User-Patches eingebettet, damit ein geteilter Groove beim
+  Empfänger identisch klingt. **IMP** importiert jede dieser Dateien und
+  erkennt den Typ automatisch: Patches werden zur Liste hinzugefügt,
+  Sequenzen ersetzen nur den Sequencer, Projekte alles. **RST** setzt auf
+  Werkszustand zurück (die Werks-Presets selbst können nie verändert werden).
 - **MASTER** — Ausgangslautstärke (dahinter verhindert ein Limiter digitales
   Clipping).
 - **VOICES** — POLY (16 Stimmen), MONO (mit Retrigger und Notengedächtnis)

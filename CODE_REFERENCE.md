@@ -64,7 +64,7 @@ Noise ──► noiseGain ┘
 | `css/style.css` | Neon styling, power-off state, step/accent/tie/edit-mode visuals |
 | `src/main.js` | Bootstrapping, power-on (AudioContext resume), preset loading, computer-keyboard input, UI scaling |
 | `src/MidiInput.js` | Web MIDI note input with velocity |
-| `src/Persistence.js` | localStorage autosave (project state), user patches, JSON export/import |
+| `src/Persistence.js` | localStorage autosave (project state), user patches, typed JSON export/import (project / single patch / sequence with embedded patches) |
 | `src/audio/Synth.js` | Voice management, global LFOs, parameter store (`params`), effects wiring |
 | `src/audio/Voice.js` | One playing note: oscillators, filter, envelopes, PWM, noise, cleanup |
 | `src/audio/Effects.js` | Distortion → Chorus → Delay → Reverb chain with per-effect bypass |

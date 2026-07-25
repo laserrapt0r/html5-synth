@@ -14,6 +14,7 @@ export class Persistence {
 
     serializeProject() {
         return {
+            type: 'project',
             v: 1,
             params: this.synth.params,
             seq: this.sequencer.serialize()
@@ -74,12 +75,12 @@ export class Persistence {
         }
     }
 
-    saveUserPatch(name) {
+    saveUserPatch(name, params = null) {
         const patches = this.getUserPatches();
         const id = 'user:' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         patches[id] = {
             name: name.toUpperCase(),
-            params: JSON.parse(JSON.stringify(this.synth.params))
+            params: JSON.parse(JSON.stringify(params || this.synth.params))
         };
         try { localStorage.setItem(PATCHES_KEY, JSON.stringify(patches)); } catch (e) { /* ignore */ }
         return id;
@@ -91,40 +92,93 @@ export class Persistence {
         try { localStorage.setItem(PATCHES_KEY, JSON.stringify(patches)); } catch (e) { /* ignore */ }
     }
 
-    // --- Export / Import (JSON file) ---
+    // --- Export / Import (JSON files) ---
+    // Three file types share one import path: 'project' (everything),
+    // 'patch' (a single sound) and 'sequence' (patterns/song/track setup
+    // with the referenced user patches embedded, so grooves are portable).
 
-    exportProject() {
-        const data = {
-            ...this.serializeProject(),
-            userPatches: this.getUserPatches()
-        };
+    _download(filename, data) {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'neon-synth-project.json';
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
     }
 
-    // Parses an exported file; returns the project data or null.
-    // Imported user patches are merged into localStorage.
-    importProjectData(json) {
+    exportProject() {
+        this._download('neon-synth-project.json', {
+            ...this.serializeProject(),
+            userPatches: this.getUserPatches()
+        });
+    }
+
+    buildPatchExport(name, params) {
+        return {
+            type: 'patch',
+            v: 1,
+            name,
+            params: JSON.parse(JSON.stringify(params))
+        };
+    }
+
+    exportPatch(name, params) {
+        const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'patch';
+        this._download(`neon-synth-patch-${slug}.json`, this.buildPatchExport(name, params));
+    }
+
+    buildSequenceExport() {
+        const seqState = this.sequencer.serialize();
+        // Embed the user patches the tracks reference — without them the
+        // groove would fall back to LIVE on the receiving side
+        const patches = this.getUserPatches();
+        const embedded = {};
+        (seqState.trackSoundIds || []).forEach(id => {
+            if (id && id.startsWith('user:') && patches[id]) embedded[id] = patches[id];
+        });
+        return { type: 'sequence', v: 1, seq: seqState, userPatches: embedded };
+    }
+
+    exportSequence() {
+        this._download('neon-synth-sequence.json', this.buildSequenceExport());
+    }
+
+    _mergePatches(patchesIn) {
+        if (!patchesIn || typeof patchesIn !== 'object') return;
+        const patches = this.getUserPatches();
+        for (const [id, patch] of Object.entries(patchesIn)) {
+            if (patch && patch.params) patches[id] = patch;
+        }
+        try { localStorage.setItem(PATCHES_KEY, JSON.stringify(patches)); } catch (e) { /* ignore */ }
+    }
+
+    // Parses any exported file and detects its type. Embedded user patches
+    // (project/sequence files) are merged into localStorage as a side effect.
+    // Returns { kind: 'project'|'patch'|'sequence', data } or null.
+    importData(json) {
         let data;
         try {
             data = JSON.parse(json);
         } catch (e) {
             return null;
         }
-        if (!data || typeof data !== 'object' || !data.params) return null;
+        if (!data || typeof data !== 'object') return null;
 
-        if (data.userPatches && typeof data.userPatches === 'object') {
-            const patches = this.getUserPatches();
-            for (const [id, patch] of Object.entries(data.userPatches)) {
-                if (patch && patch.params) patches[id] = patch;
-            }
-            try { localStorage.setItem(PATCHES_KEY, JSON.stringify(patches)); } catch (e) { /* ignore */ }
+        // Legacy project files (pre-1.1) carry no type field
+        const type = data.type || (data.params ? 'project' : null);
+
+        if (type === 'patch' && data.params) {
+            return { kind: 'patch', data };
         }
-        return data;
+        if (type === 'sequence' && data.seq) {
+            this._mergePatches(data.userPatches);
+            return { kind: 'sequence', data };
+        }
+        if (type === 'project' && data.params) {
+            this._mergePatches(data.userPatches);
+            return { kind: 'project', data };
+        }
+        return null;
     }
 }

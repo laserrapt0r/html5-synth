@@ -220,6 +220,23 @@ document.getElementById('patch-delete').addEventListener('click', () => {
 
 document.getElementById('patch-export').addEventListener('click', () => persistence.exportProject());
 
+// PEXP: export the currently selected preset/user patch as a shareable file
+document.getElementById('patch-export-single').addEventListener('click', () => {
+    const id = presetSelect.value;
+    const params = resolveSoundParams(id);
+    if (!params) return;
+    const name = id.startsWith('user:')
+        ? (persistence.getUserPatches()[id] || {}).name || 'Patch'
+        : Presets[id].name;
+    persistence.exportPatch(name, params);
+});
+
+// SEQ EXP (TOOLS row): export the sequencer incl. referenced user patches
+const seqExportBtn = document.getElementById('seq-export');
+if (seqExportBtn) {
+    seqExportBtn.addEventListener('click', () => persistence.exportSequence());
+}
+
 // Factory reset: wipe stored project + user patches and reload pristine.
 // (Factory presets live in code and are never affected by imports anyway.)
 document.getElementById('patch-reset').addEventListener('click', () => {
@@ -233,14 +250,31 @@ document.getElementById('patch-import').addEventListener('click', () => importIn
 importInput.addEventListener('change', async () => {
     const file = importInput.files && importInput.files[0];
     if (!file) return;
-    const data = persistence.importProjectData(await file.text());
-    if (data) {
-        applyPatch(data.params);
-        if (data.seq) sequencer.loadState(data.seq);
-        resolveAllTrackSounds();
-        refreshTrackSoundOptions();
-        uiController.refreshAfterLoad();
-        refreshUserPatchOptions();
+    // One import button for all three file types — dispatch by content
+    const result = persistence.importData(await file.text());
+    if (result) {
+        if (result.kind === 'patch') {
+            // Add as user patch, load it onto the panel and select it
+            const id = persistence.saveUserPatch(result.data.name || 'Imported Patch', result.data.params);
+            refreshUserPatchOptions();
+            refreshTrackSoundOptions();
+            applyPatch(result.data.params);
+            presetSelect.value = id;
+        } else if (result.kind === 'sequence') {
+            // Replace the sequencer state only; the panel sound stays put
+            sequencer.loadState(result.data.seq);
+            resolveAllTrackSounds();
+            refreshTrackSoundOptions();
+            refreshUserPatchOptions();
+            uiController.refreshAfterLoad();
+        } else {
+            applyPatch(result.data.params);
+            if (result.data.seq) sequencer.loadState(result.data.seq);
+            resolveAllTrackSounds();
+            refreshTrackSoundOptions();
+            uiController.refreshAfterLoad();
+            refreshUserPatchOptions();
+        }
         persistence.saveProject();
     }
     importInput.value = '';
