@@ -29,6 +29,7 @@
                     <button id="patch-delete" class="mini-btn" title="Delete selected user patch">DEL</button>
                     <button id="patch-export" class="mini-btn" title="Export project as JSON file">EXP</button>
                     <button id="patch-import" class="mini-btn" title="Import project from JSON file">IMP</button>
+                    <button id="patch-reset" class="mini-btn" title="Factory reset: delete the autosaved project and ALL user patches, then reload">RST</button>
                     <input type="file" id="patch-file" accept=".json,application/json" style="display: none;">
                     </div>
                 </div>
@@ -693,6 +694,7 @@
                     <tr><td>MIDI</td><td>Velocity, pitch bend, mod wheel, sustain pedal</td></tr>
                     <tr><td>Slider wheel</td><td>Fine steps; spin fast for coarse steps</td></tr>
                     <tr><td>SAVE / DEL / EXP / IMP</td><td>User patches and project export/import — everything also autosaves in the browser</td></tr>
+                    <tr><td>RST</td><td>Factory reset: deletes the autosaved project and all user patches (factory presets are never affected)</td></tr>
                 </table>
             </div>
         </div>

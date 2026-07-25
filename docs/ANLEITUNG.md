@@ -28,7 +28,10 @@ gespeichert** und beim nächsten Besuch wiederhergestellt.
 - **PRESET** — 28 Werks-Presets, nach Kategorien gruppiert (BASS, LEAD, KEYS,
   PAD, DRUMS, FX), plus deine eigenen Patches.
   **SAVE** speichert den aktuellen Sound als User-Patch, **DEL** löscht ihn,
-  **EXP/IMP** exportieren/importieren das komplette Projekt als JSON-Datei.
+  **EXP/IMP** exportieren/importieren das komplette Projekt als JSON-Datei,
+  und **RST** setzt alles auf Werkszustand zurück (löscht das automatisch
+  gespeicherte Projekt und alle User-Patches — die Werks-Presets selbst
+  können nie verändert werden).
 - **MASTER** — Ausgangslautstärke (dahinter verhindert ein Limiter digitales
   Clipping).
 - **VOICES** — POLY (16 Stimmen), MONO (mit Retrigger und Notengedächtnis)

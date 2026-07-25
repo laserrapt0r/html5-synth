@@ -559,6 +559,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         pers2.deleteUserPatch(patchId);
         assert(!pers2.getUserPatches()[patchId], 'user patch deleted');
 
+        // Factory reset wipes project + patches and blocks the autosave flush
+        pers2.saveUserPatch('Reset Victim');
+        pers2.saveProject();
+        pers2.clearAllStorage();
+        pers2.saveProject(); // simulates the beforeunload flush during reload
+        assert(pers2.loadProject() === null && Object.keys(pers2.getUserPatches()).length === 0,
+            'factory reset wipes storage and survives the unload autosave');
+        assert(!!document.getElementById('patch-reset'), 'RST button present in the header');
+
         // ---------------- MIDI mapping ----------------
         const midi = new MidiInput(synth2, seq2);
         midi.handleMessage({ data: new Uint8Array([0x90, 64, 100]) });

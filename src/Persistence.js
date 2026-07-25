@@ -21,6 +21,7 @@ export class Persistence {
     }
 
     saveProject() {
+        if (this._disabled) return; // factory reset in progress — nothing may be re-saved
         try {
             const json = JSON.stringify(this.serializeProject());
             if (json !== this._lastSaved) {
@@ -28,6 +29,16 @@ export class Persistence {
                 this._lastSaved = json;
             }
         } catch (e) { /* storage full/blocked — non-fatal */ }
+    }
+
+    // Factory reset: wipe everything Neon Synth stores in this browser
+    // (autosaved project + user patches) and block further autosaves — the
+    // beforeunload flush would otherwise write the state right back during
+    // the reload. Keyboard-layout labels are kept (harmless, layout-specific).
+    clearAllStorage() {
+        this._disabled = true;
+        this.clearProject();
+        try { localStorage.removeItem(PATCHES_KEY); } catch (e) { /* ignore */ }
     }
 
     loadProject() {

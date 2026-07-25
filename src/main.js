@@ -220,6 +220,14 @@ document.getElementById('patch-delete').addEventListener('click', () => {
 
 document.getElementById('patch-export').addEventListener('click', () => persistence.exportProject());
 
+// Factory reset: wipe stored project + user patches and reload pristine.
+// (Factory presets live in code and are never affected by imports anyway.)
+document.getElementById('patch-reset').addEventListener('click', () => {
+    if (!window.confirm('Reset everything to factory defaults?\nThis deletes the autosaved project and ALL user patches.')) return;
+    persistence.clearAllStorage();
+    window.location.reload();
+});
+
 const importInput = document.getElementById('patch-file');
 document.getElementById('patch-import').addEventListener('click', () => importInput.click());
 importInput.addEventListener('change', async () => {

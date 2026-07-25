@@ -27,7 +27,9 @@ restored on your next visit.
 - **PRESET** — 28 factory presets grouped by category (BASS, LEAD, KEYS, PAD,
   DRUMS, FX) plus your own patches.
   **SAVE** stores the current sound as a user patch, **DEL** removes it,
-  **EXP/IMP** export/import the entire project as a JSON file.
+  **EXP/IMP** export/import the entire project as a JSON file, and **RST**
+  resets everything to factory defaults (deletes the autosaved project and
+  all user patches — the factory presets themselves can never be changed).
 - **MASTER** — output volume (a limiter behind it prevents digital clipping).
 - **VOICES** — POLY (16 voices), MONO (retriggering, with note memory) or
   LEGATO (no retrigger, glide between notes).

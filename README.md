@@ -88,7 +88,9 @@ features typically found on hardware synths.
 
 Everything (sound, patterns, song, transport settings) autosaves to your browser's localStorage and
 is restored on the next visit. **SAVE** stores the current sound as a user patch in the preset list,
-**DEL** removes it, **EXP**/**IMP** export/import the whole project (including user patches) as a JSON file.
+**DEL** removes it, **EXP**/**IMP** export/import the whole project (including user patches) as a
+JSON file, and **RST** performs a factory reset (deletes the autosaved project and all user
+patches — the factory presets live in code and are never affected by imports).
 
 ## MIDI
 
@@ -104,7 +106,7 @@ display in the header shows the connection status. Requirements: Chromium-based 
 
 ## Development
 
-The headless test suite (67 checks against the real app) runs locally with
+The headless test suite (runs against the real app in a browser) runs locally with
 `bash tests/run-tests.sh` (needs Chromium/Chrome) and on every push via GitHub Actions.
 
 ## Technologies Used
