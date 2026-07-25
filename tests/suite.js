@@ -55,6 +55,73 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         await sleep(30);
         assert(document.getElementById('dist-on').checked === true, 'preset FX state reaches the checkboxes');
 
+        // ---------------- FOLLOW mode ----------------
+        // Assigned track sounds are frozen snapshots by default; with FOLLOW
+        // lit, tracks whose sound is the patch on the panel mirror live edits.
+        {
+            const appSeq = window.__neon.sequencer;
+            const followBtn = document.getElementById('patch-follow');
+            const resSlider = document.getElementById('filter-res');
+            const t0Sound = document.getElementById('track-sound-0');
+            const t1Sound = document.getElementById('track-sound-1');
+            const setRes = (v) => {
+                resSlider.value = v;
+                resSlider.dispatchEvent(new Event('input', { bubbles: true }));
+            };
+
+            // Panel and track 0 both on cyber-bass, track 1 on a different sound
+            t0Sound.value = 'cyber-bass';
+            t0Sound.dispatchEvent(new Event('change', { bubbles: true }));
+            t1Sound.value = 'neon-pad';
+            t1Sound.dispatchEvent(new Event('change', { bubbles: true }));
+            const frozenRes = appSeq.trackSoundLocks[0]['filter.res'];
+
+            setRes(9);
+            assert(appSeq.trackSoundLocks[0]['filter.res'] === frozenRes,
+                'FOLLOW off: track sound stays a frozen snapshot during panel edits');
+
+            followBtn.click();
+            assert(followBtn.classList.contains('active') && localStorage.getItem('neon-synth-follow') === '1',
+                'FOLLOW toggles on and persists as a preference');
+            assert(parseFloat(appSeq.trackSoundLocks[0]['filter.res']) === 9,
+                'enabling FOLLOW snaps matching tracks to the panel state');
+            setRes(3);
+            assert(parseFloat(appSeq.trackSoundLocks[0]['filter.res']) === 3,
+                'FOLLOW on: panel edits reach tracks using the loaded patch');
+            assert(appSeq.trackSoundLocks[1]['filter.res'] === Presets['neon-pad'].params.filter.res,
+                'FOLLOW never touches tracks assigned to a different sound');
+
+            // SAVE pushes the saved state to tracks using that patch id,
+            // regardless of FOLLOW (saved params == panel params)
+            followBtn.click(); // off again
+            const realPrompt = window.prompt;
+            const realConfirm = window.confirm;
+            window.prompt = () => 'FLW TEST';
+            document.getElementById('patch-save').click();
+            t0Sound.value = 'user:flw-test';
+            t0Sound.dispatchEvent(new Event('change', { bubbles: true }));
+            setRes(12); // frozen — FOLLOW is off
+            assert(parseFloat(appSeq.trackSoundLocks[0]['filter.res']) === 3,
+                'saved patch on the track is frozen while FOLLOW is off');
+            document.getElementById('patch-save').click(); // re-save same name
+            assert(parseFloat(appSeq.trackSoundLocks[0]['filter.res']) === 12,
+                'SAVE updates tracks already assigned to the saved patch');
+
+            // Cleanup: delete the test patch (track falls back to LIVE)
+            window.confirm = () => true;
+            document.getElementById('patch-delete').click();
+            window.prompt = realPrompt;
+            window.confirm = realConfirm;
+            assert(appSeq.trackSoundIds[0] === null && appSeq.trackSoundIds[1] === 'neon-pad',
+                'deleting the patch drops only its own tracks back to LIVE');
+            t1Sound.value = '';
+            t1Sound.dispatchEvent(new Event('change', { bubbles: true }));
+            assert(!followBtn.classList.contains('active'), 'FOLLOW ends the section switched off');
+            presetSel.value = 'cyber-bass';
+            presetSel.dispatchEvent(new Event('change', { bubbles: true }));
+            await sleep(20);
+        }
+
         // Transport
         const playBtn = document.getElementById('seq-play');
         const w1 = playBtn.offsetWidth;

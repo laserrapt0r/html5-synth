@@ -4,6 +4,7 @@ export class UIController {
         this.sequencer = sequencer;
         this.editStepIndex = null;
         this.isUpdatingUI = false;
+        this.onLiveParamChange = null; // set by main.js for FOLLOW mode
         this.paramBindings = this.getParamBindings();
 
         // Pattern edit undo/redo (snapshot stacks)
@@ -273,6 +274,9 @@ export class UIController {
                     }
                 } else {
                     this.synth.updateParams(binding.group, binding.param, value);
+                    // FOLLOW mode: let assigned track sounds mirror live panel
+                    // edits (main.js decides which tracks match)
+                    if (this.onLiveParamChange) this.onLiveParamChange(binding.group, binding.param);
                     if (binding.param === 'arpLatch' && value === false) {
                         this.sequencer.clearArpNotes();
                         // Turn off active visual keys

@@ -40,6 +40,7 @@ export class Persistence {
         this._disabled = true;
         this.clearProject();
         try { localStorage.removeItem(PATCHES_KEY); } catch (e) { /* ignore */ }
+        try { localStorage.removeItem('neon-synth-follow'); } catch (e) { /* ignore */ }
     }
 
     loadProject() {

@@ -28,7 +28,8 @@ features typically found on hardware synths.
 - **Filter:** LP/HP/BP/Notch with log-scaled cutoff, resonance, **key tracking** and a switchable
   **12/24 dB slope**.
 - **32-Step Sequencer** with **four tracks — each with its own sound** (multi-timbral: pick any
-  factory preset or user patch per track, or LIVE for the current panel sound), eight banks (A–H)
+  factory preset or user patch per track, or LIVE for the current panel sound; assigned sounds
+  are frozen snapshots, or flip **FLW** to let them follow panel edits live), eight banks (A–H)
   with **individual loop lengths** (polymetric patterns!), per-track mute, **ties & 303-style
   slides**, **accents**, per-step **probability, ratchets (1–4) and trig conditions** (1:2 … 4:4),
   **Parameter Locks**, quantized bank switching, pattern tools (copy/paste/clear/rotate),

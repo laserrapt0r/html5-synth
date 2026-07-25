@@ -133,6 +133,16 @@ gains tapping `lfo1Bus` instead of the global depth gains. Only effects and the 
 waveform/rate remain global. Tracks on the same bank with the same sound
 are triggered only once; with different sounds they layer.
 
+Track sounds are **frozen snapshots** by default: panel edits never reach them. Two paths
+update them (both in `main.js`): **FOLLOW mode** (`patch-follow` button, preference key
+`neon-synth-follow`) re-flattens the live `synth.params` into every track whose
+`trackSoundIds` matches the patch selected on the panel — on every control edit, via
+`UIController.onLiveParamChange`; and **SAVE**, which pushes the saved state to tracks
+using that patch id regardless of FOLLOW. Both use `pushLiveParamsToTracks(id)`, which
+deliberately touches only matching tracks (a blanket `resolveAllTrackSounds()` would
+revert other tracks' unsaved FOLLOW edits). `window.__neon` exposes the app instances
+for the headless suite and console debugging.
+
 ### Velocity
 
 `velocity` flows as a `0..1+` float through `playNote → Voice.start → envelopes`:

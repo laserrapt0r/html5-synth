@@ -27,6 +27,7 @@
                     </select>
                     <button id="patch-save" class="mini-btn" title="Save current sound as user patch">SAVE</button>
                     <button id="patch-delete" class="mini-btn" title="Delete selected user patch">DEL</button>
+                    <button id="patch-follow" class="mini-btn" title="FOLLOW: while lit, tracks whose sound is the patch loaded on the panel follow your knob edits live (edits are not saved until you press SAVE)">FLW</button>
                     <button id="patch-export-single" class="mini-btn" title="Export the selected preset/patch as a shareable file">PEXP</button>
                     <button id="patch-export" class="mini-btn" title="Export the whole project as JSON file">EXP</button>
                     <button id="patch-import" class="mini-btn" title="Import project from JSON file">IMP</button>
@@ -680,6 +681,7 @@
                 <table class="help-table">
                     <tr><td>P1–P4</td><td>Mute/unmute a track</td></tr>
                     <tr><td>Sound select</td><td>The track's own sound (LIVE = current panel sound). Assigned sounds are isolated from the panel preset — only effects and LFO wave/rate stay global</td></tr>
+                    <tr><td>FLW</td><td>FOLLOW: while lit, tracks whose sound is the patch loaded on the panel mirror your knob edits live (SAVE makes them permanent; off = frozen snapshots)</td></tr>
                     <tr><td>Bank A–H / LEN</td><td>Pattern bank (switches quantized to the loop start while playing) and loop length 1–32 (polymetric)</td></tr>
                     <tr><td>Level slider</td><td>Track volume (mini mixer)</td></tr>
                     <tr><td>PLAY / STOP</td><td>Play toggles play/pause (keeps position); Stop resets and cuts notes</td></tr>

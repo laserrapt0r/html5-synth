@@ -116,6 +116,11 @@ Jeder der vier Tracks hat links neben seinem Step-Grid:
   isoliert — sie behalten ihre eigenen Voice-Parameter, LFO-Tiefen und
   Unison-Einstellungen. Nur die Effektsektion und Wellenform/Tempo der LFOs
   bleiben global (ein geteilter FX-Bus wie bei Hardware-Grooveboxen).
+  Soll ein Track beim Schrauben **live folgen**, schalte oben **FLW**
+  (FOLLOW) ein: Dann übernehmen alle Tracks, deren Sound gerade als Patch
+  auf dem Panel geladen ist, jede Regler-Änderung sofort. Die Änderungen
+  sind flüchtig, bis du sie mit SAVE speicherst — SAVE aktualisiert auch
+  ohne FOLLOW alle Tracks, die das gespeicherte Patch verwenden.
 - **Bank A–H** — welche der 8 Pattern-Banks der Track spielt. Bei laufendem
   Sequencer werden Wechsel auf den Loop-Anfang **quantisiert** (ausstehend =
   blinkend).

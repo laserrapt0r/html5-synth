@@ -102,6 +102,26 @@ const resolveAllTrackSounds = () => {
     }
 };
 
+// FOLLOW mode: when enabled, tracks whose assigned sound is the patch
+// currently loaded on the panel mirror knob edits live instead of keeping
+// their frozen snapshot. A workflow preference, not project state — it is
+// not part of exports and survives project imports.
+const FOLLOW_KEY = 'neon-synth-follow';
+let followTracks = false;
+try { followTracks = localStorage.getItem(FOLLOW_KEY) === '1'; } catch (e) { /* ignore */ }
+
+// Re-flatten the CURRENT panel params into every track assigned to `id`.
+// Only those tracks: a blanket resolveAllTrackSounds() would revert other
+// tracks' unsaved FOLLOW edits to their stored patches.
+const pushLiveParamsToTracks = (id) => {
+    if (!id) return;
+    for (let t = 0; t < sequencer.numTracks; t++) {
+        if (sequencer.trackSoundIds[t] === id) {
+            sequencer.setTrackSound(t, id, flattenPatchToLocks(synth.params));
+        }
+    }
+};
+
 // Fill the per-track sound dropdowns (LIVE + factory presets grouped by
 // category + user patches)
 const refreshTrackSoundOptions = () => {
@@ -197,6 +217,22 @@ presetSelect.addEventListener('change', (e) => {
     e.target.blur(); // Remove focus so typing doesn't accidentally change presets
 });
 
+// FOLLOW toggle: live panel edits reach tracks assigned to the loaded patch
+const followBtn = document.getElementById('patch-follow');
+followBtn.classList.toggle('active', followTracks);
+followBtn.addEventListener('click', () => {
+    followTracks = !followTracks;
+    followBtn.classList.toggle('active', followTracks);
+    try { localStorage.setItem(FOLLOW_KEY, followTracks ? '1' : '0'); } catch (e) { /* ignore */ }
+    // Turning it on snaps matching tracks to the panel right away — otherwise
+    // the first knob touch would jump from the frozen snapshot
+    if (followTracks) pushLiveParamsToTracks(presetSelect.value);
+});
+
+uiController.onLiveParamChange = () => {
+    if (followTracks) pushLiveParamsToTracks(presetSelect.value);
+};
+
 // Patch save/delete and project export/import
 document.getElementById('patch-save').addEventListener('click', () => {
     const name = window.prompt('Patch name:');
@@ -205,6 +241,9 @@ document.getElementById('patch-save').addEventListener('click', () => {
     refreshUserPatchOptions();
     refreshTrackSoundOptions();
     presetSelect.value = id;
+    // Tracks already assigned to this patch pick up the saved version
+    // (saved params == current panel params)
+    pushLiveParamsToTracks(id);
 });
 
 document.getElementById('patch-delete').addEventListener('click', () => {
@@ -522,4 +561,8 @@ const handleResize = () => {
 
 window.addEventListener('resize', handleResize);
 handleResize(); // Initial call
+
+// Instance handles for the headless test suite and console debugging —
+// app behavior (like FOLLOW mode) can't be observed through the DOM alone
+window.__neon = { synth, sequencer, uiController, persistence };
 

@@ -1002,6 +1002,12 @@ body.powered-on .glow-btn.playing {
     border-color: var(--neon-cyan);
     box-shadow: 0 0 5px rgba(0, 243, 255, 0.3);
 }
+.mini-btn.active {
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+    background: rgba(0, 243, 255, 0.12);
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
+}
 
 /* --- Transport --- */
 /* Fixed widths: the PLAY label toggles to PAUSE — without a fixed width the
