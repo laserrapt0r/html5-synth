@@ -499,12 +499,26 @@
                                     <input type="checkbox" id="reverb-on">
                                     <span class="slider round"></span>
                                 </label>
-                                <span>REVERB</span>
+                                <span>REVERB / SIDECHAIN</span>
                             </div>
                             <div class="controls-row">
                                 <div class="control-group">
                                     <label>MIX</label>
                                     <input type="range" id="reverb-mix" min="0" max="1" step="0.01" value="0.2">
+                                </div>
+                                <div class="control-group">
+                                    <label>DUCK</label>
+                                    <input type="range" id="master-duckdepth" min="0" max="1" step="0.01" value="0" title="Sidechain depth: how hard the SRC track's notes push everything else down">
+                                </div>
+                                <div class="control-group">
+                                    <label>SRC</label>
+                                    <select id="duck-source" class="preset-dropdown" style="font-size: 0.7rem; padding: 2px;" title="Sidechain trigger track (its own notes are not ducked)">
+                                        <option value="-1" selected>OFF</option>
+                                        <option value="0">T1</option>
+                                        <option value="1">T2</option>
+                                        <option value="2">T3</option>
+                                        <option value="3">T4</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -517,7 +531,7 @@
                             <div class="controls-row">
                                 <div class="control-group">
                                     <label>VOICES</label>
-                                    <input type="range" id="master-unison" min="1" max="3" step="1" value="1" title="Unison voices per note (poly mode)">
+                                    <input type="range" id="master-unison" min="1" max="7" step="1" value="1" title="Unison voices per note (poly mode) — 7 = supersaw">
                                 </div>
                                 <div class="control-group">
                                     <label>DETUNE</label>
@@ -526,6 +540,10 @@
                                 <div class="control-group">
                                     <label>SPREAD</label>
                                     <input type="range" id="master-spread" min="0" max="1" step="0.01" value="0" title="Stereo width of the voices">
+                                </div>
+                                <div class="control-group">
+                                    <label>FX</label>
+                                    <input type="range" id="master-fxsend" min="0" max="1" step="0.01" value="1" title="FX send: how much of this sound runs through the effects chain (0 = bone dry) — track sounds keep their own value">
                                 </div>
                             </div>
                         </div>
@@ -697,6 +715,8 @@
                     <tr><td>Computer keys A–K</td><td>Play notes (layout-aware labels); +/− shifts the octave</td></tr>
                     <tr><td>MIDI</td><td>Velocity, pitch bend, mod wheel, sustain pedal</td></tr>
                     <tr><td>Slider wheel</td><td>Fine steps; spin fast for coarse steps</td></tr>
+                    <tr><td>FX slider</td><td>Per-sound FX send: how much runs through the effects chain (0 = dry). Track sounds keep their own value — dry drums under a wet lead</td></tr>
+                    <tr><td>DUCK / SRC</td><td>Sidechain: notes on the SRC track push everything else down by DUCK (FX tails pump too); the trigger track itself stays clean</td></tr>
                     <tr><td>SAVE / DEL / EXP / IMP</td><td>User patches and project export/import — everything also autosaves in the browser. IMP auto-detects the file type (project, patch or sequence)</td></tr>
                     <tr><td>PEXP / SEQ EXP</td><td>Share a single sound (the selected preset/patch) or just the sequencer (patterns, song, track setup incl. its user patches)</td></tr>
                     <tr><td>RST</td><td>Factory reset: deletes the autosaved project and all user patches (factory presets are never affected)</td></tr>

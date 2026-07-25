@@ -27,6 +27,9 @@ features typically found on hardware synths.
   Random (Sample & Hold) mode and can be **BPM-synced** (1/1 … 1/16).
 - **Filter:** LP/HP/BP/Notch with log-scaled cutoff, resonance, **key tracking** and a switchable
   **12/24 dB slope**.
+- **Mix architecture:** per-sound **FX send** (0 = bone dry — track sounds carry their own, so the
+  kick stays dry under a delay-soaked lead), **sidechain ducking** (pick a trigger track; delay and
+  reverb tails pump with it) and **unison up to 7 voices** (supersaw).
 - **32-Step Sequencer** with **four tracks — each with its own sound** (multi-timbral: pick any
   factory preset or user patch per track, or LIVE for the current panel sound; assigned sounds
   are frozen snapshots, or flip **FLW** to let them follow panel edits live), eight banks (A–H)

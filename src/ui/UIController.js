@@ -96,7 +96,9 @@ export class UIController {
             { id: 'master-unison', group: 'master', param: 'unison', type: 'range' },
             { id: 'master-unidetune', group: 'master', param: 'uniDetune', type: 'range' },
             { id: 'master-spread', group: 'master', param: 'spread', type: 'range' },
-            
+            { id: 'master-fxsend', group: 'master', param: 'fxSend', type: 'range' },
+            { id: 'master-duckdepth', group: 'master', param: 'duckDepth', type: 'range' },
+
             { id: 'vco1-on', group: 'vco1', param: 'on', type: 'checkbox' },
             { name: 'vco1-wave', group: 'vco1', param: 'wave', type: 'radio' },
             { id: 'vco1-oct', group: 'vco1', param: 'oct', type: 'range' },
@@ -857,6 +859,8 @@ export class UIController {
         }
         const timeDivSelect = document.getElementById('seq-timediv');
         if (timeDivSelect) timeDivSelect.value = this.sequencer.timeDiv;
+        const duckSel = document.getElementById('duck-source');
+        if (duckSel) duckSel.value = this.sequencer.duckSource;
 
         const songToggle = document.getElementById('song-mode');
         if (songToggle) songToggle.checked = this.sequencer.songMode;

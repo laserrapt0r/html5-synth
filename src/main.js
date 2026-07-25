@@ -24,8 +24,12 @@ uiController = new UIController(synth, sequencer);
 midiInput = new MidiInput(synth, sequencer);
 persistence = new Persistence(synth, sequencer);
 
-// Apply a full parameter snapshot (factory preset, user patch, or import)
+// Apply a full parameter snapshot (factory preset, user patch, or import).
+// Params that older patches don't carry get their defaults back explicitly —
+// otherwise the previous patch's value would silently stick.
 const applyPatch = (params) => {
+    if (!params.master || params.master.fxSend === undefined) synth.updateParams('master', 'fxSend', 1);
+    if (!params.master || params.master.duckDepth === undefined) synth.updateParams('master', 'duckDepth', 0);
     for (const [group, groupParams] of Object.entries(params)) {
         for (const [key, value] of Object.entries(groupParams)) {
             synth.updateParams(group, key, value);
@@ -72,7 +76,7 @@ export const flattenPatchToLocks = (params) => {
     // on the panel must not change how an assigned track sounds. (Effects and
     // the LFO waveform/rate stay global, like a shared FX bus.)
     locks['master.polyphony'] = 'poly';
-    ['unison', 'uniDetune', 'spread'].forEach(k => {
+    ['unison', 'uniDetune', 'spread', 'fxSend'].forEach(k => {
         if (params.master && params.master[k] !== undefined) locks[`master.${k}`] = params.master[k];
     });
     if (params.lfo1) {
@@ -162,6 +166,12 @@ for (let t = 0; t < sequencer.numTracks; t++) {
     });
 }
 refreshTrackSoundOptions();
+
+// Sidechain trigger track (state lives in the sequencer, serialized with it)
+document.getElementById('duck-source').addEventListener('change', (e) => {
+    sequencer.duckSource = parseInt(e.target.value);
+    e.target.blur();
+});
 
 // Restore the previous session; fall back to the default pattern (Funky Town)
 const savedProject = persistence.loadProject();

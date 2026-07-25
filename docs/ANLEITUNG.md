@@ -81,10 +81,18 @@ gespeichert** und beim nächsten Besuch wiederhergestellt.
 
 Die Kette ist Distortion → **Chorus/Ensemble** (stereo, das Solina-Geheimnis) →
 Delay (frei oder **BPM-synchron**: 1/4, 1/8., 1/8, 1/8T, 1/16) → Reverb.
-**STEREO/UNISON** schichtet bis zu 3 verstimmte Stimmen pro Note
-(VOICES/DETUNE) und verteilt sie im Stereofeld (SPREAD). Die Effekte sind
-global — alle vier Sequencer-Tracks teilen sie sich wie einen FX-Bus am
-echten Gerät.
+**STEREO/UNISON** schichtet bis zu **7 verstimmte Stimmen** pro Note
+(VOICES/DETUNE — 7 = Supersaw) und verteilt sie im Stereofeld (SPREAD).
+Die Effekte sind global — alle vier Sequencer-Tracks teilen sie sich wie
+einen FX-Bus am echten Gerät. Wie viel ein Sound in diesen Bus schickt,
+bestimmt aber sein eigener **FX-Regler** (0 = knochentrocken): Track-Sounds
+bringen ihren Wert mit, so bleibt die Kick trocken, während das Lead im
+Delay badet. Die Drum-Werkspresets sind entsprechend voreingestellt.
+
+**Sidechain (DUCK/SRC im Reverb-Modul):** Wähle mit SRC einen Trigger-Track
+(typisch die Kick) — dessen Noten drücken alles andere um den DUCK-Betrag
+nach unten, inklusive der Delay-/Reverb-Fahnen (das klassische Pumpen).
+Der Trigger-Track selbst bleibt unbeeinflusst.
 
 ## 6. Die Klaviatur
 

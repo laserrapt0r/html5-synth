@@ -24,10 +24,13 @@ no dependencies. `index.html` loads `src/main.js`, which wires everything togeth
                         global LFOs ────────►│    Voice    │ (osc → filter → amp env)
                                              └─────────────┘
                                                     │
-                                             ┌─────────────┐
-                                             │   Effects   │ dist → delay → reverb
-                                             └─────────────┘
-                                                    │
+                                       ┌── dry ──┬── wet ──┐   per-voice FX send
+                                       │         │  ┌─────────────┐
+                                       │         │  │   Effects   │ dist → chorus → delay → reverb
+                                       │         │  └─────────────┘
+                                       ▼         ▼         │
+                                   cleanBus   duckBus ◄────┘   sidechain dip (FX tails pump)
+                                       └────┬────┘
                               masterGain → limiter → analyser → destination
                                           └→ recorderDest (audio export tap)
                                                     │
@@ -41,10 +44,21 @@ no dependencies. `index.html` loads `src/main.js`, which wires everything togeth
 ```
 VCO1 ─┬─► vco1Gain ─┐
       └─► WaveShaper (PWM mode only, driven by DC offset + LFO1)
-VCO2 ───► gain ─────┼─► BiquadFilter ─► output gain (amp envelope) ─► Effects.input
+VCO2 ───► gain ─────┼─► BiquadFilter ─► output gain (amp envelope) ─► panner ─► dry/wet split
 VCO3 ───► gain ─────┤
 Noise ──► noiseGain ┘
 ```
+
+Each voice splits behind the panner (`Synth._routeVoice`): a **wet** gain into the shared
+effects chain and a **dry** gain onto `duckBus` (or `cleanBus` for the sidechain source
+track). The split ratio is `master.fxSend` (0..1, lockable — track sounds carry their own,
+default 1 = the pre-1.2 routing). `Synth.duck(time)` dips `duckBus` by `master.duckDepth`
+with click-free `setTargetAtTime` ramps; the Sequencer calls it for every note (incl.
+ratchet hits) on `duckSource` and marks those notes `master.duckExempt` on the fly —
+the flag never touches stored pattern data. Effects output also runs through `duckBus`,
+so delay/reverb tails pump. `applyPatch` resets `fxSend`/`duckDepth` to their defaults
+for patches that don't carry them (older exports must not inherit the previous patch's
+routing).
 
 ### Modulation routing (global, in `Synth`)
 

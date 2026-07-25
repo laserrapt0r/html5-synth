@@ -256,7 +256,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "KICK DRUM",
         params: {
-            master: { polyphony: 'mono', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'mono', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0},
             vco1: { on: true, wave: 'sine', oct: -2, tune: 0, level: 1.0, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -279,7 +279,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "NOISE PERC",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0.2},
             vco1: { on: false, wave: 'sawtooth', oct: 0, tune: 0, level: 0, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -417,7 +417,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "SNARE DRUM",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0.2},
             vco1: { on: true, wave: 'triangle', oct: 0, tune: 0, level: 0.4, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -440,7 +440,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "CLOSED HAT",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0.15},
             vco1: { on: false, wave: 'square', oct: 0, tune: 0, level: 0, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -463,7 +463,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "OPEN HAT",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0.15},
             vco1: { on: false, wave: 'square', oct: 0, tune: 0, level: 0, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -486,7 +486,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "CLAP",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0.25},
             vco1: { on: false, wave: 'square', oct: 0, tune: 0, level: 0, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -509,7 +509,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "SYNTH TOM",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0.2},
             vco1: { on: true, wave: 'sine', oct: -1, tune: 0, level: 1.0, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },
@@ -532,7 +532,7 @@ export const Presets = {
         cat: 'DRUMS',
         name: "RIMSHOT",
         params: {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', arpLatch: false, arpOctaves: 1, unison: 1, uniDetune: 12, spread: 0, fxSend: 0.15},
             vco1: { on: true, wave: 'square', oct: 1, tune: 0, level: 0.5, pw: 0.5, pwm: 0 },
             vco2: { on: false, wave: 'square', oct: 0, tune: 0, level: 0 },
             vco3: { on: false, wave: 'sine', oct: 0, tune: 0, level: 0 },

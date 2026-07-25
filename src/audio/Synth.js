@@ -25,8 +25,20 @@ export class Synth {
         // Effects Chain
         this.effects = new Effects(this.ctx);
 
-        // Routing: Voices -> Effects -> Master Gain -> Limiter -> Analyser -> Output
-        this.effects.output.connect(this.masterGain);
+        // Routing: every voice splits into a dry path and a wet path into the
+        // shared effects chain (per-voice FX send, lockable per track sound).
+        // The dry paths land on one of two summing buses: duckBus dips on
+        // sidechain triggers, cleanBus stays untouched (the trigger track
+        // itself). The effects output also runs through duckBus so delay and
+        // reverb tails pump with the kick — the classic trance sidechain.
+        //
+        //   Voice -> dry ----------------> duckBus | cleanBus -> Master -> Limiter
+        //         -> wet -> Effects ------> duckBus
+        this.duckBus = this.ctx.createGain();
+        this.cleanBus = this.ctx.createGain();
+        this.effects.output.connect(this.duckBus);
+        this.duckBus.connect(this.masterGain);
+        this.cleanBus.connect(this.masterGain);
         this.masterGain.connect(this.limiter);
         this.limiter.connect(this.analyser);
         this.analyser.connect(this.ctx.destination);
@@ -37,7 +49,7 @@ export class Synth {
 
         // Global Parameters
         this.params = {
-            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', unison: 1, uniDetune: 12, spread: 0 },
+            master: { polyphony: 'poly', glide: 0, swing: 0, arpOn: false, arpMode: 'up', unison: 1, uniDetune: 12, spread: 0, fxSend: 1, duckDepth: 0 },
             vco1: { on: true, wave: 'sawtooth', oct: 0, tune: 0, level: 0.8, pw: 0.5, pwm: 0, customWaveReal: null, customWaveImag: null },
             vco2: { on: true, wave: 'square', oct: -1, tune: 7, level: 0.6 },
             vco3: { on: true, wave: 'sine', oct: 1, tune: -7, level: 0.4 },
@@ -60,7 +72,7 @@ export class Synth {
         this.bpm = 120;
 
         // Voice Management
-        this.maxVoices = 16; // 4 sequencer tracks + keyboard need headroom
+        this.maxVoices = 20; // 4 tracks + keyboard + supersaw unison headroom
         this.activeVoices = {}; // key: note string, value: primary Voice (unison siblings attached)
         this.monoVoice = null;
         this.heldNotes = []; // mono/legato note memory (physically held keys, in press order)
@@ -194,6 +206,41 @@ export class Synth {
         );
     }
 
+    // Split a voice into dry + wet paths. fxSend (0 = bone dry, 1 = fully
+    // through the FX chain) is lockable, so track sounds carry their own —
+    // a dry kick under a delay-soaked lead. The trigger track of the
+    // sidechain lands on cleanBus so it doesn't duck itself.
+    _routeVoice(voice, pLocks) {
+        const P = pLocks || {};
+        const pick = (key, fallback) => (P[key] !== undefined ? P[key] : fallback);
+        let send = parseFloat(pick('master.fxSend', this.params.master.fxSend));
+        if (isNaN(send)) send = 1;
+        send = Math.max(0, Math.min(1, send));
+
+        const dry = this.ctx.createGain();
+        const wet = this.ctx.createGain();
+        dry.gain.value = 1 - send;
+        wet.gain.value = send;
+        voice.panner.connect(dry);
+        voice.panner.connect(wet);
+        dry.connect(P['master.duckExempt'] ? this.cleanBus : this.duckBus);
+        wet.connect(this.effects.input);
+        voice.ownedNodes.push(dry, wet);
+        voice.fxSendGains = { dry, wet }; // inspected by the test suite
+    }
+
+    // Sidechain dip on duckBus: fast exponential drop, musical release.
+    // setTargetAtTime only ever approaches — no discontinuities, so closely
+    // spaced triggers (ratchets) can't click.
+    duck(time) {
+        const depth = Math.max(0, Math.min(1, parseFloat(this.params.master.duckDepth) || 0));
+        if (depth <= 0) return;
+        const g = this.duckBus.gain;
+        g.cancelScheduledValues(time);
+        g.setTargetAtTime(1 - depth, time, 0.003);
+        g.setTargetAtTime(1, time + 0.06, 0.08);
+    }
+
     // Effective LFO rate in Hz — sync > 0 means the rate is a note length in beats
     _lfoRate(cfg) {
         const sync = parseFloat(cfg.sync);
@@ -220,7 +267,7 @@ export class Synth {
 
         if (mode === 'poly') {
             // Polyphonic Mode
-            const unison = Math.max(1, Math.min(3, parseInt(pick('master.unison', this.params.master.unison)) || 1));
+            const unison = Math.max(1, Math.min(7, parseInt(pick('master.unison', this.params.master.unison)) || 1));
             const uniDetune = parseFloat(pick('master.uniDetune', this.params.master.uniDetune)) || 0;
             const spread = parseFloat(pick('master.spread', this.params.master.spread)) || 0;
 
@@ -247,7 +294,7 @@ export class Synth {
                     v.panner.pan.value = noteSide * spread * 0.7;
                 }
                 this._connectLFOs(v, P);
-                v.panner.connect(this.effects.input);
+                this._routeVoice(v, P);
                 v.start(freq, time, pLocks, velocity);
                 group.push(v);
             }
@@ -279,7 +326,7 @@ export class Synth {
                 this.monoVoice = new Voice(this.ctx, this.params);
                 this.monoVoice.startTime = time;
                 this._connectLFOs(this.monoVoice, P);
-                this.monoVoice.panner.connect(this.effects.input);
+                this._routeVoice(this.monoVoice, P);
                 this.monoVoice.start(freq, time, pLocks, velocity);
             } else {
                 // Glide / Legato
@@ -504,6 +551,8 @@ export class Synth {
             if (key === 'unison') this.params.master.unison = value;
             if (key === 'uniDetune') this.params.master.uniDetune = value;
             if (key === 'spread') this.params.master.spread = value;
+            if (key === 'fxSend') this.params.master.fxSend = value;
+            if (key === 'duckDepth') this.params.master.duckDepth = value;
         } else if (module === 'effects') {
             // Apply from the params object, NOT from the DOM — during preset
             // loading the DOM still holds the old values at this point.

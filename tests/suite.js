@@ -122,6 +122,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
             await sleep(20);
         }
 
+        // Mix architecture controls
+        assert(document.getElementById('master-unison').max === '7', 'unison slider reaches supersaw territory (7)');
+        assert(!!document.getElementById('master-fxsend') && !!document.getElementById('master-duckdepth')
+            && !!document.getElementById('duck-source'), 'FX send and sidechain controls present');
+
         // Transport
         const playBtn = document.getElementById('seq-play');
         const w1 = playBtn.offsetWidth;
@@ -265,7 +270,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
             'master limiter and recorder tap in the chain');
         assert(Math.abs(synth.lfo1.frequency.value - 5) < 0.001 && synth.lfo1PwmGain.gain.value === 0,
             'LFO1 initialised from params');
-        assert(synth.maxVoices === 16, 'voice limit is 16');
+        assert(synth.maxVoices === 20, 'voice limit is 20 (supersaw headroom)');
 
         // Velocity
         synth.playNote(61, ctx.currentTime, 0, {}, 0.5);
@@ -561,7 +566,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         synth.playNote(80, ctx.currentTime, 0, flat);
         const iso = synth.activeVoices[80];
         assert(!!iso, 'track sound plays poly even while the panel is mono');
-        assert(iso.ownedNodes.length >= 2 && iso.ownedNodes.every(g => g.gain.value === 0),
+        // ownedNodes also carries the FX-send pair now — inspect only the LFO depth gains
+        const lfoDepthGains = iso.ownedNodes.filter(g => g !== iso.fxSendGains.dry && g !== iso.fxSendGains.wet);
+        assert(lfoDepthGains.length >= 2 && lfoDepthGains.every(g => g.gain.value === 0),
             'per-voice LFO depths shield the track from global modulation');
         synth.stopNote(80, ctx.currentTime);
         synth.params.master.polyphony = 'poly';
@@ -570,6 +577,65 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
         synth.playNote(81, ctx.currentTime, 0, uniLocks);
         assert(synth.activeVoices[81].unisonSiblings.length === 2, 'per-note unison override from track sound');
         synth.stopNote(81, ctx.currentTime);
+
+        // Supersaw: unison up to 7 voices per note
+        synth.playNote(82, ctx.currentTime, 0, { 'master.unison': 7 });
+        assert(synth.activeVoices[82].unisonSiblings.length === 6, 'unison stacks up to 7 voices (supersaw)');
+        synth.stopNote(82, ctx.currentTime);
+
+        // FX send: per-voice dry/wet split, lockable per track sound
+        synth.playNote(83, ctx.currentTime, 0, {});
+        let g = synth.activeVoices[83].fxSendGains;
+        assert(g.wet.gain.value === 1 && g.dry.gain.value === 0, 'default fxSend routes fully through the FX chain');
+        synth.stopNote(83, ctx.currentTime);
+        synth.playNote(83, ctx.currentTime, 0, { 'master.fxSend': 0 });
+        g = synth.activeVoices[83].fxSendGains;
+        assert(g.wet.gain.value === 0 && g.dry.gain.value === 1, 'fxSend 0 lock plays the voice bone dry');
+        synth.stopNote(83, ctx.currentTime);
+
+        // Sidechain duck: scheduled automation on the duck bus
+        const duckCalls = [];
+        const realSTAT = synth.duckBus.gain.setTargetAtTime.bind(synth.duckBus.gain);
+        synth.duckBus.gain.setTargetAtTime = (v, t, tau) => { duckCalls.push(v); return realSTAT(v, t, tau); };
+        synth.params.master.duckDepth = 0;
+        synth.duck(ctx.currentTime);
+        assert(duckCalls.length === 0, 'duck is inert at depth 0');
+        synth.params.master.duckDepth = 0.6;
+        synth.duck(ctx.currentTime);
+        assert(duckCalls.length === 2 && Math.abs(duckCalls[0] - 0.4) < 1e-9 && duckCalls[1] === 1,
+            'duck dips the bus to 1-depth and schedules the release');
+        synth.duckBus.gain.setTargetAtTime = realSTAT;
+        synth.params.master.duckDepth = 0;
+
+        // Sequencer: the duck-source track triggers the dip and is exempt itself
+        {
+            const seqD = new Sequencer(synth);
+            seqD.duckSource = 1;
+            seqD.patterns[0][0] = { active: true, note: 60, tie: false, accent: false, prob: 1, ratchet: 1, cond: null, locks: {} };
+            seqD.patterns[1][0] = { active: true, note: 40, tie: false, accent: false, prob: 1, ratchet: 1, cond: null, locks: {} };
+            seqD.trackBanks = [0, 1, 2, 3];
+            const played = [];
+            let ducks = 0;
+            const realPlayD = synth.playNote.bind(synth);
+            const realDuck = synth.duck.bind(synth);
+            synth.playNote = (note, time, dur, locks) => played.push({ note, locks });
+            synth.duck = () => ducks++;
+            seqD.absStep = 0;
+            seqD.scheduleNote(0, ctx.currentTime + 1);
+            synth.playNote = realPlayD;
+            synth.duck = realDuck;
+            assert(ducks === 1, 'only the duck-source track fires the sidechain');
+            const src = played.find(p => p.note === 40);
+            const other = played.find(p => p.note === 60);
+            assert(src.locks['master.duckExempt'] === 1 && other.locks['master.duckExempt'] === undefined,
+                'duck-source notes are exempt, others are not');
+            assert(seqD.patterns[1][0].locks['master.duckExempt'] === undefined,
+                'the exempt flag never leaks into stored pattern data');
+            seqD.duckSource = 2;
+            const rt = new Sequencer(synth);
+            rt.loadState(JSON.parse(JSON.stringify(seqD.serialize())));
+            assert(rt.duckSource === 2, 'duckSource survives the serialize round-trip');
+        }
 
         // Slide reaches forced-poly voices even while the panel is mono
         synth.params.master.polyphony = 'mono';

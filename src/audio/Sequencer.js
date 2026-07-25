@@ -64,6 +64,10 @@ export class Sequencer {
         // FILL: while held, steps with cond 'fill' play and '!fill' steps mute
         this.fillActive = false;
 
+        // Sidechain: notes on this track dip the duck bus (-1 = off). The
+        // track's own notes are exempt so the kick doesn't duck itself.
+        this.duckSource = -1;
+
         // Absolute step counter since play-from-stop (for trig conditions)
         this.absStep = 0;
 
@@ -517,7 +521,11 @@ export class Sequencer {
 
                     // Track sound (multi-timbrality) merged under the step's own locks
                     const soundLocks = this.trackSoundLocks[trackIndex];
-                    const locks = soundLocks ? { ...soundLocks, ...stepData.locks } : stepData.locks;
+                    let locks = soundLocks ? { ...soundLocks, ...stepData.locks } : stepData.locks;
+                    // Sidechain source: exempt from the duck (copied — the
+                    // flag must never leak into the stored pattern data)
+                    const isDuckSource = trackIndex === this.duckSource;
+                    if (isDuckSource) locks = { ...locks, 'master.duckExempt': 1 };
                     const velocity = (stepData.accent ? ACCENT_VELOCITY : 1) * this.trackLevels[trackIndex];
 
                     const ratchet = Math.max(1, parseInt(stepData.ratchet) || 1);
@@ -525,14 +533,16 @@ export class Sequencer {
                         // Ratchet: n evenly spaced retriggers within the step
                         const hitDuration = (stepDuration / ratchet) * this.gate;
                         for (let r = 0; r < ratchet; r++) {
-                            this.synth.playNote(stepData.note, scheduledTime + r * (stepDuration / ratchet),
-                                hitDuration, locks, velocity);
+                            const hitTime = scheduledTime + r * (stepDuration / ratchet);
+                            if (isDuckSource) this.synth.duck(hitTime);
+                            this.synth.playNote(stepData.note, hitTime, hitDuration, locks, velocity);
                         }
                     } else {
                         // Count tie chain to extend gate duration
                         const tieCount = this._countTieChain(bankIdx, pos, len);
                         const totalSteps = 1 + tieCount;
                         const gateDuration = (stepDuration * totalSteps) * this.gate;
+                        if (isDuckSource) this.synth.duck(scheduledTime);
                         this.synth.playNote(stepData.note, scheduledTime, gateDuration, locks, velocity);
                     }
                 }
@@ -632,6 +642,7 @@ export class Sequencer {
             trackSoundIds: [...this.trackSoundIds],
             trackLevels: [...this.trackLevels],
             metronomeOn: this.metronomeOn,
+            duckSource: this.duckSource,
             bpm: this.bpm,
             gate: this.gate,
             timeDiv: this.timeDiv,
@@ -683,6 +694,8 @@ export class Sequencer {
             state.trackLevels.forEach((l, i) => { if (i < this.numTracks) this.setTrackLevel(i, l); });
         }
         this.metronomeOn = !!state.metronomeOn;
+        const ds = parseInt(state.duckSource);
+        this.duckSource = (ds >= 0 && ds < this.numTracks) ? ds : -1;
         if (state.bpm) this.setBpm(state.bpm);
         if (state.gate) this.gate = parseFloat(state.gate);
         if (state.timeDiv) this.timeDiv = parseFloat(state.timeDiv);

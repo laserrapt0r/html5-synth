@@ -75,9 +75,17 @@ restored on your next visit.
 
 The chain is Distortion → **Chorus/Ensemble** (stereo, the Solina secret) →
 Delay (free or **BPM-synced**: 1/4, 1/8., 1/8, 1/8T, 1/16) → Reverb.
-**STEREO/UNISON** stacks up to 3 detuned voices per note (VOICES/DETUNE) and
-spreads them across the stereo field (SPREAD). Effects are global — all four
-sequencer tracks share them like a hardware FX bus.
+**STEREO/UNISON** stacks up to **7 detuned voices** per note (VOICES/DETUNE —
+7 = supersaw) and spreads them across the stereo field (SPREAD). Effects are
+global — all four sequencer tracks share them like a hardware FX bus. How much
+a sound feeds into that bus is its own **FX slider** though (0 = bone dry):
+track sounds carry their value with them, so the kick stays dry while the
+lead bathes in delay. The factory drum presets ship preset accordingly.
+
+**Sidechain (DUCK/SRC in the reverb module):** pick a trigger track with SRC
+(typically the kick) — its notes push everything else down by the DUCK
+amount, including the delay/reverb tails (the classic pumping). The trigger
+track itself stays untouched.
 
 ## 6. The Keyboard
 
